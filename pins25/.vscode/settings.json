@@ -1,0 +1,42 @@
+{
+    "makefile.makePath": "C:\\msys64\\usr\\bin\\make.exe",
+    "makefile.makefilePath": "L:\\repos\\fri\\compiler-java\\pins25\\prg\\Makefile",
+    // "makefile.configurations": [
+    //     {
+    //         "name": "MSYS Make",
+    //         "makePath": "C:\\msys64\\usr\\bin\\make.exe",
+    //         "makeDirectory": "${workspaceFolder}",
+    //         "makefilePath": "${workspaceFolder}\\prg\\Makefile",
+    //         "problemMatchers": ["$gcc"]
+    //     }
+    // ],
+    // "makefile.configurations": [
+    //     {
+    //         "name": "MSYS Make",
+    //         "makePath": "C:\\msys64\\usr\\bin\\make.exe",
+    //         "makeDirectory": "L:\\repos\\fri\\compiler-java\\pins25\\prg",
+    //         "makefilePath": "L:\\repos\\fri\\compiler-java\\pins25\\prg\\Makefile",
+    //         "problemMatchers": ["$gcc"]
+    //     }
+    // ],
+    "makefile.launchConfigurations": [
+        {
+            "cwd": "${workspaceFolder}",
+            "binaryPath": "java",
+            "binaryArgs": ["--enable-preview", "-classpath", "../bin", "pins25.phase.LexAn", "${input:filename}"]
+        }
+    ],
+    // "makefile.env": {
+    //     "PATH": "${env:PATH};C:\\msys64\\usr\\bin"
+    // },
+    "makefile.configurations": [
+        {
+            "name": "MSYS Make",
+            "makePath": "C:\\msys64\\usr\\bin\\bash.exe",
+            "makeArgs": ["-c", "cd '${workspaceFolder}' && make $1", "--", "all"],
+            "problemMatchers": ["$gcc"]
+        }
+    ],
+    // "makefile.defaultConfigurationProvider": "MSYS Make"
+    //"makefile.defaultConfigurationProvider": "MSYS Make"
+}
