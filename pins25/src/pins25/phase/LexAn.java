@@ -180,7 +180,7 @@ public class LexAn implements AutoCloseable {
 				} else {
 					throw new Report.Error(
 						new Report.Location(startLine, startCol, buffCharLine, buffCharColumn),
-						" Special character unvalid: " + sb.toString()
+						"Special character unvalid: " + sb.toString()
 					);
 				}
 			} else if (buffChar >= 32 && buffChar <= 126) {

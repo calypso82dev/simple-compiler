@@ -13,7 +13,7 @@ all:
 
 # Pattern rule for running LexAn
 %: %.pins25
-	$(JAVA) -classpath ../bin pins25.phase.LexAn $<
+	$(JAVA) -classpath ../bin pins25.phase.SynAn $<
 
 # Clean compiled files
 clean:
