@@ -84,13 +84,23 @@ public class SynAn implements AutoCloseable {
 		// prog2 -> def prog2 | ε
 		Token token = lexAn.peekToken();
 
-		// Look if next token could start a definition (FUN, VAR)
-		if (couldStartDefinition(token.symbol())) {
-			System.out.printf("  Production: prog2 -> def prog2\n");
-			parseDef();    // Parse Definition
-			parseProg2();  // Parse Definitions2
-		} else {
-			System.out.printf("  Production: prog2 -> ε\n");
+		switch (token.symbol()) {
+			// Check if token could start def
+			case Token.Symbol.FUN:
+			case Token.Symbol.VAR:
+				System.out.printf("  Production: prog2 -> def prog2\n");
+				parseDef();    // Parse Definition
+				parseProg2();  // Parse Program2
+				break;
+				
+			case Token.Symbol.EOF:
+				System.out.printf("  Production: prog2 -> ε\n");
+				// End of file reached, empty production is correct
+				break;
+				
+			default:
+				// Unexpected token - can't apply any production
+				raiseSyntaxError(token, "Expected 'fun', 'var', or end of file");
 		}
 	}
 
@@ -105,7 +115,7 @@ public class SynAn implements AutoCloseable {
 		{
 			case Token.Symbol.FUN: // fun id lpar params rpar def2
 				System.out.printf("  Production: def -> fun id lpar params rpar def2\n");
-				lexAn.takeToken(); // consume 'fun'
+				check(Token.Symbol.FUN); // consume 'fun'
 				// expected: id
 				check(Token.Symbol.IDENTIFIER, "Expected identifier after 'fun'");
 				// expected: lparen
@@ -118,7 +128,7 @@ public class SynAn implements AutoCloseable {
 
 			case Token.Symbol.VAR: // var id equ inits
 				System.out.printf("  Production: def -> var id equ inits\n");
-				lexAn.takeToken(); // consume 'var'
+				check(Token.Symbol.VAR); // consume 'var'
 				// expected: id
 				check(Token.Symbol.IDENTIFIER, "Expected identifier after 'var'");
 				// expected: assign
@@ -140,13 +150,18 @@ public class SynAn implements AutoCloseable {
 		{
 			case Token.Symbol.ASSIGN: // assign states
 				System.out.printf("  Production: def2 -> assign states\n");
-				lexAn.takeToken(); // consume '='
+				check(Token.Symbol.ASSIGN); // consume '='
 				parseStates(); // Parse Statements
 				break;
 
-			default:
+			case Token.Symbol.EOF:
 				System.out.printf("  Production: def2 -> ε\n");
-				// it's epsilon (empty) production
+				// End of file reached, empty production is correct
+				break;
+				
+			default:
+				// Unexpected token - can't apply any production
+				raiseSyntaxError(token, "Expected '=' or end of file");
 		}
 	}
 
@@ -160,13 +175,18 @@ public class SynAn implements AutoCloseable {
 		{
 			case Token.Symbol.IDENTIFIER: // id params2
 				System.out.printf("  Production: params -> id params2\n");
-				lexAn.takeToken(); // consume 'id'
+				check(Token.Symbol.IDENTIFIER); // consume 'id'
 				parseParams2(); // Parse parameters2
 				break;
-
-			default: 
+			
+			case Token.Symbol.EOF:
 				System.out.printf("  Production: params -> ε\n");
-				// it's epsilon (empty) production
+				// End of file reached, empty production is correct
+				break;
+				
+			default:
+				// Unexpected token - can't apply any production
+				raiseSyntaxError(token, "Expected identifier or end of file");		
 		}
 	}
 
