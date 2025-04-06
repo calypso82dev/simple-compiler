@@ -1,6 +1,6 @@
 JAVA = java --enable-preview
-#JAVAC = javac --enable-preview --release 22
-JAVAC = javac --enable-preview --release 21
+JAVAC = javac --enable-preview --release 22
+#JAVAC = javac --enable-preview --release 21
 SRC = ../src
 BIN = ../bin
 

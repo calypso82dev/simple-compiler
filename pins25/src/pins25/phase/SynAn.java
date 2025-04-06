@@ -1,7 +1,5 @@
 package pins25.phase;
 
-import java.util.*;
-
 import pins25.common.*;
 
 /**
@@ -50,9 +48,15 @@ public class SynAn implements AutoCloseable {
 	}
 
 	private void raiseSyntaxError(Token token, String expectedMsg) {
+		String tokenDisplay;
+		if (token.symbol() == Token.Symbol.EOF) {
+			tokenDisplay = "end of file";
+		} else {
+			tokenDisplay = "'" + token.lexeme() + "'";
+		}
 		throw new Report.Error(
 			token.location(),
-			"Syntax error: " + expectedMsg + ", found '" + token.lexeme() + "'"
+			"Syntax error: " + expectedMsg + " found " + tokenDisplay
 		);
 	}
 
@@ -64,11 +68,9 @@ public class SynAn implements AutoCloseable {
 		parseProg();
 
 		// End of file
-		if (lexAn.peekToken().symbol() != Token.Symbol.EOF) {
-			throw new Report.Error(lexAn.peekToken(),
-				"Unexpected text '" + lexAn.peekToken().lexeme() + "...' at the end of the program.");
-		}
-
+		if (lexAn.peekToken().symbol() != Token.Symbol.EOF)
+			Report.warning(lexAn.peekToken(),
+					"Unexpected text '" + lexAn.peekToken().lexeme() + "...' at the end of the program.");
 	}
 
 	private void parseProg() {
@@ -92,15 +94,13 @@ public class SynAn implements AutoCloseable {
 				parseDef();    // Parse Definition
 				parseProg2();  // Parse Program2
 				break;
-				
 			case Token.Symbol.EOF:
 				System.out.printf("  Production: prog2 -> ε\n");
 				// End of file reached, empty production is correct
 				break;
-				
 			default:
 				// Unexpected token - can't apply any production
-				raiseSyntaxError(token, "Expected 'fun', 'var', or end of file");
+				raiseSyntaxError(token, "Expected definition ('fun' or 'var') or end of file");
 		}
 	}
 
@@ -125,7 +125,6 @@ public class SynAn implements AutoCloseable {
 				check(Token.Symbol.RPAREN, "Expected ')' after parameters");
 				parseDef2(); // Parse definitions2
 				break;
-
 			case Token.Symbol.VAR: // var id equ inits
 				System.out.printf("  Production: def -> var id equ inits\n");
 				check(Token.Symbol.VAR); // consume 'var'
@@ -137,11 +136,12 @@ public class SynAn implements AutoCloseable {
 				break;
 
 			default: 
-				raiseSyntaxError(token, "Expected 'fun' or 'var'");
+				raiseSyntaxError(token, "Expected definition ('fun' or 'var')");
 		}
 	}
 
-	private void parseDef2() {
+	private void parseDef2()
+	{
 		System.out.printf("Parsing: Definition2\n");
 		Token token = lexAn.peekToken();
 		// def2 -> assign states | ε
@@ -153,15 +153,16 @@ public class SynAn implements AutoCloseable {
 				check(Token.Symbol.ASSIGN); // consume '='
 				parseStates(); // Parse Statements
 				break;
-
+			case Token.Symbol.FUN:
+			case Token.Symbol.VAR:
+			case Token.Symbol.IN:
 			case Token.Symbol.EOF:
+				// Empty production
 				System.out.printf("  Production: def2 -> ε\n");
-				// End of file reached, empty production is correct
 				break;
-				
 			default:
 				// Unexpected token - can't apply any production
-				raiseSyntaxError(token, "Expected '=' or end of file");
+				raiseSyntaxError(token, "Expected '=' or end of definition");
 		}
 	}
 
@@ -178,15 +179,9 @@ public class SynAn implements AutoCloseable {
 				check(Token.Symbol.IDENTIFIER); // consume 'id'
 				parseParams2(); // Parse parameters2
 				break;
-			
-			case Token.Symbol.EOF:
-				System.out.printf("  Production: params -> ε\n");
-				// End of file reached, empty production is correct
-				break;
-				
 			default:
 				// Unexpected token - can't apply any production
-				raiseSyntaxError(token, "Expected identifier or end of file");		
+				System.out.printf("  Production: params -> ε\n");	
 		}
 	}
 
@@ -199,15 +194,14 @@ public class SynAn implements AutoCloseable {
 		{
 			case Token.Symbol.COMMA: // comma id params2
 				System.out.printf("  Production: params2 -> comma id params2\n");
-				lexAn.takeToken(); // consume ','
+				check(Token.Symbol.COMMA); // consume ','
 				// expected: id
 				check(Token.Symbol.IDENTIFIER, "Expected identifier after ','");
 				parseParams2(); // Parse Parameters2
 				break;
-
 			default:
+				// Unexpected token - can't apply any production
 				System.out.printf("  Production: params2 -> ε\n");
-				// it's epsilon (empty) production
 		}
 	}
 
@@ -229,14 +223,22 @@ public class SynAn implements AutoCloseable {
 		{
 			case Token.Symbol.COMMA: // comma state states2
 				System.out.printf("  Production: states2 -> comma state states2\n");
-				lexAn.takeToken(); // consume ','
+				check(Token.Symbol.COMMA); // consume ','
 				parseState(); // Parse Statement
 				parseStates2(); // Parse Statements2
 				break;
-
-			default:
+			case Token.Symbol.FUN:
+			case Token.Symbol.VAR:
+			case Token.Symbol.END:
+			case Token.Symbol.ELSE:
+			case Token.Symbol.IN:
+			case Token.Symbol.EOF:
+				// Empty production
 				System.out.printf("  Production: states2 -> ε\n");
-				// it's epsilon (empty) production
+				break;
+			default:
+				// Unexpected token - can't apply any production
+				raiseSyntaxError(token, "Expected ',' or end of statements");
 		}
 	}
 
@@ -253,7 +255,7 @@ public class SynAn implements AutoCloseable {
 		{
 			case Token.Symbol.IF: // if expr then states else2 end
 				System.out.printf("  Production: state -> if expr then states else2 end\n");
-				lexAn.takeToken(); // consume 'if'
+				check(Token.Symbol.IF); // consume 'if'
 				parseExpr(); // Parse Expression
 				// expected: then
 				check(Token.Symbol.THEN, "Expected 'then' after 'if'");
@@ -262,10 +264,9 @@ public class SynAn implements AutoCloseable {
 				// expected: end
 				check(Token.Symbol.END, "Expected 'end' after 'then'");
 				break;
-
 			case Token.Symbol.WHILE: // while expr do states end
 				System.out.printf("  Production: state -> while expr do states end\n");
-				lexAn.takeToken(); // consume 'while'
+				check(Token.Symbol.WHILE); // consume 'while'
 				parseExpr(); // Parse Expression
 				// expected: do
 				check(Token.Symbol.DO, "Expected 'do' after 'while'");
@@ -273,10 +274,9 @@ public class SynAn implements AutoCloseable {
 				// expected: end
 				check(Token.Symbol.END, "Expected 'end' after 'do'");
 				break;
-
 			case Token.Symbol.LET: // let defs2 in states end
 				System.out.printf("  Production: state -> let defs2 in states end\n");
-				lexAn.takeToken(); // consume 'let'
+				check(Token.Symbol.LET); // consume 'let'
 				parseDefs2(); // Parse Definitions2
 				// expected: in
 				check(Token.Symbol.IN, "Expected 'in' after 'let'");
@@ -284,7 +284,6 @@ public class SynAn implements AutoCloseable {
 				// expected: end
 				check(Token.Symbol.END, "Expected 'end' after 'in'");
 				break;
-
 			default: // expr state2
 				System.out.printf("  Production: state -> expr state2\n");
 				parseExpr(); // Parse Expression
@@ -301,13 +300,22 @@ public class SynAn implements AutoCloseable {
 		{
 			case Token.Symbol.ASSIGN: // assign expr
 				System.out.printf("  Production: state2 -> assign expr\n");
-				lexAn.takeToken(); // consume '='
+				check(Token.Symbol.ASSIGN); // consume '='
 				parseExpr(); // Parse Expression
 				break;
-
-			default:
+			case Token.Symbol.FUN:
+			case Token.Symbol.VAR:
+			case Token.Symbol.COMMA:
+			case Token.Symbol.ELSE:
+			case Token.Symbol.END:
+			case Token.Symbol.IN:
+			case Token.Symbol.EOF:
+				// Empty production
 				System.out.printf("  Production: state2 -> ε\n");
-				// it's epsilon (empty) production
+				break;
+			default:
+				// Unexpected token - can't apply any production
+				raiseSyntaxError(token, "Expected '=' or end of statement");
 		}
 	}
 
@@ -320,13 +328,16 @@ public class SynAn implements AutoCloseable {
 		{
 			case Token.Symbol.ELSE: // else states
 				System.out.printf("  Production: else2 -> else states\n");
-				lexAn.takeToken(); // consume 'else'
+				check(Token.Symbol.ELSE); // consume 'else'
 				parseStates(); // Parse Expression
 				break;
-
-			default:
+			case Token.Symbol.END:
+				// Empty production
 				System.out.printf("  Production: else2 -> ε\n");
-				// it's epsilon (empty) production
+				break;
+			default:
+				// Unexpected token - can't apply any production
+				raiseSyntaxError(token, "Expected 'else' or 'end'");
 		}
 	}
 
@@ -335,17 +346,22 @@ public class SynAn implements AutoCloseable {
 		// defs2 -> def defs2 | ε
 		Token token = lexAn.peekToken();
 
-		if (couldStartDefinition(token.symbol())) {
-			System.out.printf("  Production: defs2 -> def defs2\n");
-			parseDef();    // Parse Definition
-			parseDefs2();  // Parse Definitions2
-		} else {
-			System.out.printf("  Production: defs2 -> ε\n");
-			// Otherwise, it's epsilon (empty) production, so do nothing
+		switch (token.symbol())
+		{
+			case Token.Symbol.FUN:
+			case Token.Symbol.VAR:
+				System.out.printf("  Production: defs2 -> def defs2\n");
+				parseDef();    // Parse Definition
+				parseDefs2();  // Parse Definitions2
+				break;
+			case Token.Symbol.IN:
+				// Empty production
+				System.out.printf("  Production: defs2 -> ε\n");
+				break;
+			default:
+				// Unexpected token - can't apply any production
+				raiseSyntaxError(token, "Expected definition ('fun' or 'var') or end of definitions");
 		}
-	}
-	private boolean couldStartDefinition(Token.Symbol symbol) {
-		return symbol == Token.Symbol.FUN || symbol == Token.Symbol.VAR;
 	}
 
 	// Operators (by priority - incresing): 
@@ -379,15 +395,28 @@ public class SynAn implements AutoCloseable {
 		{
 			case Token.Symbol.OR:  // or and_expr or_expr2
 				System.out.printf("  Production: or_expr2 -> or and_expr or_expr2\n");
-				lexAn.takeToken(); // consume operator
+				check(Token.Symbol.OR); // consume operator
 				System.out.printf("    Operator: ||\n");
 				parseAndExpr();
 				parseOrExpr2();
 				break;
-
-			default:
+			case Token.Symbol.RPAREN:
+			case Token.Symbol.FUN:
+			case Token.Symbol.ASSIGN:
+			case Token.Symbol.VAR:
+			case Token.Symbol.COMMA:
+			case Token.Symbol.THEN:
+			case Token.Symbol.END:
+			case Token.Symbol.ELSE:
+			case Token.Symbol.DO:
+			case Token.Symbol.IN:
+			case Token.Symbol.EOF:
+				// Empty production
 				System.out.printf("  Production: or_expr2 -> ε\n");
-				// it's epsilon (empty) production
+				break;
+			default:
+				// Unexpected token - can't apply any production
+				raiseSyntaxError(token, "Expected operator or end of expression");
 		}
 	}
 	// AND
@@ -406,15 +435,29 @@ public class SynAn implements AutoCloseable {
 		{
 			case Token.Symbol.AND:  // and comp_expr and_expr2
 				System.out.printf("  Production: and_expr2 -> and comp_expr and_expr2\n");
-				lexAn.takeToken(); // consume operator
+				check(Token.Symbol.AND); // consume operator
 				System.out.printf("    Operator: &&\n");
 				parseCompExpr();
 				parseAndExpr2();
 				break;
-
-			default:
+			case Token.Symbol.OR:
+			case Token.Symbol.RPAREN:
+			case Token.Symbol.FUN:
+			case Token.Symbol.ASSIGN:
+			case Token.Symbol.VAR:
+			case Token.Symbol.COMMA:
+			case Token.Symbol.THEN:
+			case Token.Symbol.END:
+			case Token.Symbol.ELSE:
+			case Token.Symbol.DO:
+			case Token.Symbol.IN:
+			case Token.Symbol.EOF:
+				// Empty production
 				System.out.printf("  Production: and_expr2 -> ε\n");
-				// it's epsilon (empty) production
+				break;
+			default:
+				// Unexpected token - can't apply any production
+				raiseSyntaxError(token, "Expected non comparison operator or end of expression");
 		}
 	}
 	// Comparison
@@ -434,38 +477,53 @@ public class SynAn implements AutoCloseable {
 		{
 			case Token.Symbol.EQU:
 				System.out.printf("  Production: comp_expr2 -> equ addit_expr\n");
-				lexAn.takeToken(); // consume operator
+				check(Token.Symbol.EQU); // consume operator
 				parseAdditExpr();
 				break;
 			case Token.Symbol.NEQ:
 				System.out.printf("  Production: comp_expr2 -> neq addit_expr\n");
-				lexAn.takeToken(); // consume operator
+				check(Token.Symbol.NEQ); // consume operator
 				parseAdditExpr();
 				break;
 			case Token.Symbol.GTH:
 				System.out.printf("  Production: comp_expr2 -> gth addit_expr\n");
-				lexAn.takeToken(); // consume operator
+				check(Token.Symbol.GTH); // consume operator
 				parseAdditExpr();
 				break;
 			case Token.Symbol.LTH:
 				System.out.printf("  Production: comp_expr2 -> lth addit_expr\n");
-				lexAn.takeToken(); // consume operator
+				check(Token.Symbol.LTH); // consume operator
 				parseAdditExpr();
 				break;
 			case Token.Symbol.GEQ:
 				System.out.printf("  Production: comp_expr2 -> geq addit_expr\n");
-				lexAn.takeToken(); // consume operator
+				check(Token.Symbol.GEQ); // consume operator
 				parseAdditExpr();
 				break;
 			case Token.Symbol.LEQ:
 				System.out.printf("  Production: comp_expr2 -> leq addit_expr\n");
-				lexAn.takeToken(); // consume operator
+				check(Token.Symbol.LEQ); // consume operator
 				parseAdditExpr();
 				break;
-				
+			case Token.Symbol.OR:
+			case Token.Symbol.AND:
+			case Token.Symbol.RPAREN:
+			case Token.Symbol.FUN:
+			case Token.Symbol.ASSIGN:
+			case Token.Symbol.VAR:
+			case Token.Symbol.COMMA:
+			case Token.Symbol.THEN:
+			case Token.Symbol.END:
+			case Token.Symbol.ELSE:
+			case Token.Symbol.DO:
+			case Token.Symbol.IN:
+			case Token.Symbol.EOF:
+				// Empty production
+				System.out.printf("  Production: comp_expr2 -> ε\n");
+				break;
 			default:
-					System.out.printf("  Production: addit_expr2 -> ε\n");
-					// it's epsilon (empty) production
+				// Unexpected token - can't apply any production
+				raiseSyntaxError(token, "Expected operator or end of expression");
 		}
 	}
 	// Addititve operators
@@ -486,20 +544,41 @@ public class SynAn implements AutoCloseable {
 		{
 			case Token.Symbol.ADD:
 				System.out.printf("  Production: addit_expr2 -> add multi_expr addit_expr2\n");
-				lexAn.takeToken(); // consume operator
+				check(Token.Symbol.ADD); // consume operator
 				parseMultiExpr();
 				parseAdditExpr2();
 				break;
 			case Token.Symbol.SUB:
 				System.out.printf("  Production: addit_expr2 -> sub multi_expr addit_expr2\n");
-				lexAn.takeToken(); // consume operator
+				check(Token.Symbol.SUB); // consume operator
 				parseMultiExpr();
 				parseAdditExpr2();
 				break;
-				
-			default:
+			case Token.Symbol.EQU:
+			case Token.Symbol.NEQ:
+			case Token.Symbol.GTH:
+			case Token.Symbol.LTH:
+			case Token.Symbol.GEQ:
+			case Token.Symbol.LEQ:
+			case Token.Symbol.OR:
+			case Token.Symbol.AND:
+			case Token.Symbol.RPAREN:
+			case Token.Symbol.FUN:
+			case Token.Symbol.ASSIGN:
+			case Token.Symbol.VAR:
+			case Token.Symbol.COMMA:
+			case Token.Symbol.THEN:
+			case Token.Symbol.END:
+			case Token.Symbol.ELSE:
+			case Token.Symbol.DO:
+			case Token.Symbol.IN:
+			case Token.Symbol.EOF:
+				// Empty production
 				System.out.printf("  Production: addit_expr2 -> ε\n");
-				// it's epsilon (empty) production
+				break;
+			default:
+				// Unexpected token - can't apply any production
+				raiseSyntaxError(token, "Expected operator or end of expression");
 		}
 	}
 	// Multiplicative operators
@@ -520,26 +599,49 @@ public class SynAn implements AutoCloseable {
 		{
 			case Token.Symbol.MUL:
 				System.out.printf("  Production: multi_expr2 -> mul pre_expr multi_expr2\n");
-				lexAn.takeToken(); // consume operator
+				check(Token.Symbol.MUL); // consume operator
 				parsePreExpr();
 				parseMultiExpr2();
 				break;
 			case Token.Symbol.DIV:
 				System.out.printf("  Production: multi_expr2 -> div pre_expr multi_expr2\n");
-				lexAn.takeToken(); // consume operator
+				check(Token.Symbol.DIV); // consume operator
 				parsePreExpr();
 				parseMultiExpr2();
 				break;
 			case Token.Symbol.MOD:
 				System.out.printf("  Production: multi_expr2 -> mod pre_expr multi_expr2\n");
-				lexAn.takeToken(); // consume operator
+				check(Token.Symbol.MOD); // consume operator
 				parsePreExpr();
 				parseMultiExpr2();
 				break;
-				
-			default:
+			case Token.Symbol.ADD:
+			case Token.Symbol.SUB:
+			case Token.Symbol.EQU:
+			case Token.Symbol.NEQ:
+			case Token.Symbol.GTH:
+			case Token.Symbol.LTH:
+			case Token.Symbol.GEQ:
+			case Token.Symbol.LEQ:
+			case Token.Symbol.OR:
+			case Token.Symbol.AND:
+			case Token.Symbol.RPAREN:
+			case Token.Symbol.FUN:
+			case Token.Symbol.ASSIGN:
+			case Token.Symbol.VAR:
+			case Token.Symbol.COMMA:
+			case Token.Symbol.THEN:
+			case Token.Symbol.END:
+			case Token.Symbol.ELSE:
+			case Token.Symbol.DO:
+			case Token.Symbol.IN:
+			case Token.Symbol.EOF:
+				// Empty production
 				System.out.printf("  Production: multi_expr2 -> ε\n");
-				// it's epsilon (empty) production
+				break;
+			default:
+				// Unexpected token - can't apply any production
+				raiseSyntaxError(token, "Expected operator or end of expression");
 		}
 	}
 	// Prefix operators
@@ -553,30 +655,30 @@ public class SynAn implements AutoCloseable {
 		{
 			case Token.Symbol.NOT:
 				System.out.printf("  Production: pre_expr -> not pre_expr\n");
-				lexAn.takeToken(); // consume operator
+				check(Token.Symbol.NOT); // consume operator
 				parsePreExpr();
 				break;
 			case Token.Symbol.ADD:
 				System.out.printf("  Production: pre_expr -> add pre_expr\n");
-				lexAn.takeToken(); // consume operator
+				check(Token.Symbol.ADD); // consume operator
 				parsePreExpr();
 				break;
 			case Token.Symbol.SUB:
 				System.out.printf("  Production: pre_expr -> sub pre_expr\n");
-				lexAn.takeToken(); // consume operator
+				check(Token.Symbol.SUB); // consume operator
 				parsePreExpr();
 				break;
 			case Token.Symbol.PTR:
 				System.out.printf("  Production: pre_expr -> ptr pre_expr\n");
-				lexAn.takeToken(); // consume operator
+				check(Token.Symbol.PTR); // consume operator
 				parsePreExpr();
 				break;
-				
 			default:
 				System.out.printf("  Production: pre_expr -> post_expr\n");
 				parsePostExpr();
 		}
 	}
+
 	// Postfix operators
 	private void parsePostExpr() {
 		System.out.printf("Parsing: PostfixExpression\n");
@@ -595,13 +697,39 @@ public class SynAn implements AutoCloseable {
 		{
 			case Token.Symbol.PTR:
 				System.out.printf("  Production: post_expr2 -> ptr post_expr2\n");
-				lexAn.takeToken(); // consume operator
+				check(Token.Symbol.PTR); // consume operator
 				parsePostExpr2();
 				break;
-				
-			default:
+			case Token.Symbol.MUL:
+			case Token.Symbol.DIV:
+			case Token.Symbol.MOD:
+			case Token.Symbol.ADD:
+			case Token.Symbol.SUB:
+			case Token.Symbol.EQU:
+			case Token.Symbol.NEQ:
+			case Token.Symbol.GTH:
+			case Token.Symbol.LTH:
+			case Token.Symbol.GEQ:
+			case Token.Symbol.LEQ:
+			case Token.Symbol.OR:
+			case Token.Symbol.AND:
+			case Token.Symbol.RPAREN:
+			case Token.Symbol.FUN:
+			case Token.Symbol.ASSIGN:
+			case Token.Symbol.VAR:
+			case Token.Symbol.COMMA:
+			case Token.Symbol.THEN:
+			case Token.Symbol.END:
+			case Token.Symbol.ELSE:
+			case Token.Symbol.DO:
+			case Token.Symbol.IN:
+			case Token.Symbol.EOF:
+				// Empty production
 				System.out.printf("  Production: post_expr2 -> ε\n");
-				// it's epsilon (empty) production
+				break;
+			default:
+				// Unexpected token - can't apply any production
+				raiseSyntaxError(token, "Expected operator or end of expression");
 		}
 	}
 	// Primary 
@@ -615,31 +743,29 @@ public class SynAn implements AutoCloseable {
 		{
 			case Token.Symbol.INTCONST:
 				System.out.printf("  Production: primary -> int\n");
-				lexAn.takeToken(); // consume const
+				check(Token.Symbol.INTCONST); // consume const
 				break;
 			case Token.Symbol.CHARCONST:
 				System.out.printf("  Production: primary -> char\n");
-				lexAn.takeToken(); // consume const
+				check(Token.Symbol.CHARCONST); // consume const
 				break;
 			case Token.Symbol.STRINGCONST:
 				System.out.printf("  Production: primary -> string\n");
-				lexAn.takeToken(); // consume const
+				check(Token.Symbol.STRINGCONST); // consume const
 				break;
 			case Token.Symbol.LPAREN:
 				System.out.printf("  Production: primary -> lpar expr rpar\n");
-				lexAn.takeToken(); // consume '('
+				check(Token.Symbol.LPAREN); // consume '('
 				parseExpr(); // Parse Expression
 				check(Token.Symbol.RPAREN, "Expected ')' after '('");
 				break;
-
 			case Token.Symbol.IDENTIFIER:
 				System.out.printf("  Production: primary -> id opt_args\n");
-				lexAn.takeToken(); // consume id
+				check(Token.Symbol.IDENTIFIER); // consume id
 				parseOptArgs(); // Parse Optinal args
 				break;
-				
 			default:
-				raiseSyntaxError(token, "Expected const or identifier");
+				raiseSyntaxError(token, "Expected constant (integer, character, string), identifier, or '('");
 		}
 	}
 	// Optional args
@@ -651,27 +777,44 @@ public class SynAn implements AutoCloseable {
 		{
 			case Token.Symbol.LPAREN:
 				System.out.printf("  Production: opt_args -> lpar args rpar\n");
-				lexAn.takeToken(); // consume '('
+				check(Token.Symbol.LPAREN); // consume '('
 				parseArgs(); // Parse Arguments
 				check(Token.Symbol.RPAREN, "Expected ')' after '('");
 				break;
-				
-			default:
+			case Token.Symbol.MUL:
+			case Token.Symbol.DIV:
+			case Token.Symbol.MOD:
+			case Token.Symbol.ADD:
+			case Token.Symbol.SUB:
+			case Token.Symbol.PTR:
+			case Token.Symbol.EQU:
+			case Token.Symbol.NEQ:
+			case Token.Symbol.GTH:
+			case Token.Symbol.LTH:
+			case Token.Symbol.GEQ:
+			case Token.Symbol.LEQ:
+			case Token.Symbol.OR:
+			case Token.Symbol.AND:
+			case Token.Symbol.RPAREN:
+			case Token.Symbol.FUN:
+			case Token.Symbol.ASSIGN:
+			case Token.Symbol.VAR:
+			case Token.Symbol.COMMA:
+			case Token.Symbol.THEN:
+			case Token.Symbol.END:
+			case Token.Symbol.ELSE:
+			case Token.Symbol.DO:
+			case Token.Symbol.IN:
+			case Token.Symbol.EOF:
+				// Empty production
 				System.out.printf("  Production: opt_args -> ε\n");
-				// it's epsilon (empty) production
+				break;
+			default:
+				// Unexpected token - can't apply any production
+				raiseSyntaxError(token, "Expected '(' for optional arguemnts");
 		}
 	}
-	private boolean couldStartExpression(Token.Symbol symbol) {
-		return symbol == Token.Symbol.INTCONST ||    // Integer constants
-			   symbol == Token.Symbol.CHARCONST ||   // Character constants
-			   symbol == Token.Symbol.STRINGCONST || // String constants
-			   symbol == Token.Symbol.LPAREN ||      // Left parenthesis (for grouped expressions)
-			   symbol == Token.Symbol.IDENTIFIER ||  // Identifiers
-			   symbol == Token.Symbol.NOT ||         // Logical NOT (prefix operator)
-			   symbol == Token.Symbol.ADD ||         // Unary plus (prefix operator)
-			   symbol == Token.Symbol.SUB ||         // Unary minus (prefix operator)
-			   symbol == Token.Symbol.PTR;           // Pointer operator (prefix)
-	}
+
 	// Arguments
 	private void parseArgs()
 	{
@@ -679,15 +822,16 @@ public class SynAn implements AutoCloseable {
 		// args -> expr args2 | ε
 		Token token = lexAn.peekToken();
 
-		// Check if token could start an expression
-		if (couldStartExpression(token.symbol())) {
-			System.out.printf("  Production: args -> expr args2\n");
-			parseExpr();
-			parseArgs2();
-		} else {
-			System.out.printf("  Production: args -> ε\n");
-			// it's epsilon (empty) production
-		   
+		switch (token.symbol())
+		{
+			case Token.Symbol.RPAREN:
+				// Empty production
+				System.out.printf("  Production: args -> ε\n");
+				break;
+			default:
+				System.out.printf("  Production: args -> expr args2\n");
+				parseExpr();
+				parseArgs2();
 		}
 	}
 	private void parseArgs2() {
@@ -699,14 +843,17 @@ public class SynAn implements AutoCloseable {
 		{
 			case Token.Symbol.COMMA: // comma expr args2
 				System.out.printf("  Production: args2 -> comma expr args2\n");
-				lexAn.takeToken(); // consume ','
+				check(Token.Symbol.COMMA); // consume ','
 				parseExpr(); // Parse Expressiom
 				parseArgs2(); // Parse Arguments2
 				break;
-
-			default:
+			case Token.Symbol.RPAREN:
+				// Empty production
 				System.out.printf("  Production: args2 -> ε\n");
-				// it's epsilon (empty) production
+				break;
+			default:
+				// Unexpected token - can't apply any production
+				raiseSyntaxError(token, "Expected ',' or end of arguments");
 		}
 	}
 	// Initializers
@@ -716,14 +863,19 @@ public class SynAn implements AutoCloseable {
 		// inits -> init inits2 | ε
 		Token token = lexAn.peekToken();
 
-		// Check if token could start initializer
-		if (couldStartInitializer(token.symbol())) {
-			System.out.printf("  Production: inits -> init inits2\n");
-			parseInit();
-			parseInits2();
-		} else {
-			System.out.printf("  Production: inits -> ε\n");
-			// it's epsilon (empty) production
+		switch (token.symbol())
+		{
+			case Token.Symbol.FUN:
+			case Token.Symbol.VAR:
+			case Token.Symbol.IN:
+			case Token.Symbol.EOF:
+				// Empty production
+				System.out.printf("  Production: inits -> ε\n");
+				break;
+			default:
+				System.out.printf("  Production: inits -> init inits2\n");
+				parseInit();
+				parseInits2();
 		}
 	}
 	private void parseInits2() {
@@ -735,14 +887,20 @@ public class SynAn implements AutoCloseable {
 		{
 			case Token.Symbol.COMMA: // comma init 
 				System.out.printf("  Production: inits2 -> comma init inits2\n");
-				lexAn.takeToken(); // consume ','
+				check(Token.Symbol.COMMA); // consume ','
 				parseInit(); // Parse Initializer
 				parseInits2(); // Parse Initializers2
 				break;
-
-			default:
+			case Token.Symbol.FUN:
+			case Token.Symbol.VAR:
+			case Token.Symbol.IN:
+			case Token.Symbol.EOF:
+				// Empty production
 				System.out.printf("  Production: inits2 -> ε\n");
-				// it's epsilon (empty) production
+				break;
+			default:
+				// Unexpected token - can't apply any production
+				raiseSyntaxError(token, "Expected ',' or end of initializers");
 		}
 	}
 	// Initializer
@@ -755,19 +913,19 @@ public class SynAn implements AutoCloseable {
 		switch (token.symbol()) {
 			case Token.Symbol.INTCONST:
 				System.out.printf("  Production: init -> int mul_const_expr\n");
-				lexAn.takeToken(); // consume INTCONST
+				check(Token.Symbol.INTCONST); // consume INTCONST
 				parseMulConstExpr();
 				break;
 			case Token.Symbol.CHARCONST:
 				System.out.printf("  Production: init -> char\n");
-				lexAn.takeToken(); // consume CHARCONST
+				check(Token.Symbol.CHARCONST); // consume CHARCONST
 				break;
 			case Token.Symbol.STRINGCONST:
 				System.out.printf("  Production: init -> string\n");
-				lexAn.takeToken(); // consume STRINGCONST
+				check(Token.Symbol.STRINGCONST); // consume STRINGCONST
 				break;
 			default:
-				raiseSyntaxError(token, "Expected an initializer (int, char, or string)");
+				raiseSyntaxError(token, "Expected an initializer (integer, character, or string)");
 		}
 	}
 	private void parseMulConstExpr() {
@@ -779,19 +937,21 @@ public class SynAn implements AutoCloseable {
 		{
 			case Token.Symbol.MUL: //  mul const
 				System.out.printf("  Production: mul_const_expr -> mul const\n");
-				lexAn.takeToken(); // consume mul
+				check(Token.Symbol.MUL); // consume mul
 				parseConst();
 				break;
-
-			default:
+			case Token.Symbol.FUN:
+			case Token.Symbol.VAR:
+			case Token.Symbol.IN:
+			case Token.Symbol.COMMA:
+			case Token.Symbol.EOF:
+				// Empty production
 				System.out.printf("  Production: mul_const_expr -> ε\n");
-				// it's epsilon (empty) production
+				break;
+			default:
+				// Unexpected token - can't apply any production
+				raiseSyntaxError(token, "Expected '*' or end of var initialization");
 		}
-	}
-	private boolean couldStartInitializer(Token.Symbol symbol) {
-		return symbol == Token.Symbol.INTCONST ||    // Integer constants (for both int_mul and const)
-			   symbol == Token.Symbol.CHARCONST ||   // Character constants (for const)
-			   symbol == Token.Symbol.STRINGCONST;   // String constants (for const)
 	}
 	// Const 
 	private void parseConst() {
@@ -802,19 +962,18 @@ public class SynAn implements AutoCloseable {
 		{
 			case Token.Symbol.INTCONST:
 				System.out.printf("  Production: const -> int\n");
-				lexAn.takeToken(); // consume const
+				check(Token.Symbol.INTCONST); // consume INTCONST
 				break;
 			case Token.Symbol.CHARCONST:
 				System.out.printf("  Production: const -> char\n");
-				lexAn.takeToken(); // consume const
+				check(Token.Symbol.CHARCONST); // consume const
 				break;
 			case Token.Symbol.STRINGCONST:
 				System.out.printf("  Production: const -> string\n");
-				lexAn.takeToken(); // consume const
+				check(Token.Symbol.STRINGCONST); // consume const
 				break;
-
 			default:
-				raiseSyntaxError(token, "Expected constant (int, char, string)");
+				raiseSyntaxError(token, "Expected constant (integer, character, string)");
 		}
 	}
 
