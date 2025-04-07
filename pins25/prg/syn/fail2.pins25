@@ -1,1 +1,1 @@
-fun a() = a == b || c
+fun a() = a == b ||. c
