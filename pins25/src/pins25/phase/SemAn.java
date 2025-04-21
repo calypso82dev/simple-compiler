@@ -3,6 +3,7 @@ package pins25.phase;
 import java.util.*;
 
 import pins25.common.*;
+import pins25.common.AST.UnExpr;
 
 /**
  * Semanticni analizator.
@@ -516,10 +517,65 @@ public class SemAn {
 		 */
 		private class ResolverVisitor implements AST.FullVisitor<Object, Object> {
 
-		    // TODO
+			@SuppressWarnings({ "doclint:missing" })
+			public ResolverVisitor() {
+			}
+	
+			@Override
+			public Object visit(final AST.AssignStmt assignStmt, final Object arg) {
+				// Check if dstExpr (left side) is corrrect L-value
+				if (isLValue(assignStmt.dstExpr)) {
+					// Mark this expression as a valid l-value in the attribute map
+					attrAST.attrLVal.put(assignStmt.dstExpr, true);
+				} else {
+					String expressionType = getExpressionTypeDescription(assignStmt.dstExpr);
+					throw new Report.Error(attrAST.attrLoc.get(assignStmt),
+							"Left side of assignment is not a valid l-value: " + expressionType);
+				}
+				
+				return null;
+			}
 
+			// Helper method to check if an expression is a valid l-value
+			private boolean isLValue(AST.Expr expr) {
+				// Case 1: Expression is a variable
+				if (expr instanceof AST.VarExpr) {
+					return true;
+				}
+				
+				// Case 2: Expression has postfix ^ as outermost operator
+				if (expr instanceof AST.UnExpr) {
+					AST.UnExpr unExpr = (AST.UnExpr)expr;
+					if (unExpr.oper == UnExpr.Oper.VALUEAT) {
+						return true;
+					}
+				}
+				
+				// Any other expression type is not a valid l-value
+				return false;
+			}
+			// Helper method to get a description of the expression type for error messages
+			private String getExpressionTypeDescription(AST.Expr expr) {
+				if (expr instanceof AST.VarExpr) {
+					return "variable '" + ((AST.VarExpr)expr).name + "'";
+				} else if (expr instanceof AST.UnExpr) {
+					AST.UnExpr unExpr = (AST.UnExpr)expr;
+					if (unExpr.oper == AST.UnExpr.Oper.VALUEAT) {
+						return "dereference expression";
+					} else {
+						return "unary expression with operator '" + unExpr.oper + "'";
+					}
+				} else if (expr instanceof AST.BinExpr) {
+					return "binary expression with operator '" + ((AST.BinExpr)expr).oper + "'";
+				} else if (expr instanceof AST.CallExpr) {
+					return "function call '" + ((AST.CallExpr)expr).name + "'";
+				} else if (expr instanceof AST.AtomExpr) {
+					return "literal value";
+				} else {
+					return "expression of type " + expr.getClass().getSimpleName();
+				}
+			}
 		}
-
 	}
 
 	// --- ZAGON ---
