@@ -1,0 +1,3 @@
+var foo = 2 * "a", 2 * "b"
+var bar = 4 * "Hello, World!"
+var funny = 69 * "\0b"

@@ -1,6 +1,6 @@
 JAVA = java --enable-preview
-#JAVAC = javac --enable-preview --release 22
-JAVAC = javac --enable-preview --release 21
+JAVAC = javac --enable-preview --release 22
+# JAVAC = javac --enable-preview --release 21
 SRC = ../src
 BIN = ../bin
 
@@ -13,7 +13,7 @@ all:
 
 # Pattern rule for running LexAn
 %: %.pins25
-	$(JAVA) -classpath ../bin pins25.phase.SemAn $<
+	$(JAVA) -classpath ../bin pins25.phase.Memory $<
 
 # Clean compiled files
 clean:

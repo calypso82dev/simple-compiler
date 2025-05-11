@@ -1,0 +1,22 @@
+fun foo(x) =
+    let
+        var a = "Lorem ipsum"
+        var i = 0
+        fun bar(y) =
+            let
+                var b = "dolor sit", 2
+                var table = 6 * 0
+            in
+                b
+            end,
+            0
+        fun bar2(z, hash) =
+            while (z <= 0) do
+                hash = hash + z,
+                z = z + 1
+            end,
+            hash
+    in
+        x = bar(bar2(2, 32466534))
+    end,
+    x
