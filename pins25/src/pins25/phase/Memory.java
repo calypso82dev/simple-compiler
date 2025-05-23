@@ -348,39 +348,49 @@ public class Memory {
 				
 				// Create the output vector
 				Vector<Integer> result = new Vector<>();
-				result.add(inits.size());  // Count of initializers
+				result.add(0);  // Count of initializers (placeholder)
 				
+				int initCount = 0;
 				// Process each initializer
 				for (AST.Init init : inits) {
 					AST.AtomExpr initValue = init.value;
 					// Add the number of repetitions
 					Integer numOfRepetition = decodeIntConst(init.num, null);
-					result.add(numOfRepetition);
-					
+
 					Report.Locatable loc = attrAST.attrLoc.get(initValue);
-					switch (initValue.type) {
-						case INTCONST -> {
-							// Integer constant - single value
-							Integer value = decodeIntConst(initValue, loc);
-							result.add(1);  // Length is 1 for an integer
-							result.add(value);  // Add the integer value
-						}
-						case CHRCONST -> {
-							// Character constant - single value
-							Integer value = decodeChrConst(initValue, loc);
-							result.add(1);  // Length is 1 for a character
-							result.add(value);  // Add the character value
-						}
-						case STRCONST -> {
-							// String constant - multiple values
-							Vector<Integer> values = decodeStrConst(initValue, loc);
-							result.add(values.size());  // Length is the string length
-							// Add all the character values
-							result.addAll(values);  // This adds all elements from the values vector
+					if (numOfRepetition > 0)
+					{
+						result.add(numOfRepetition);
+						initCount++;
+						switch (initValue.type) {
+							case INTCONST -> {
+								// Integer constant - single value
+								Integer value = decodeIntConst(initValue, loc);
+								result.add(1);  // Length is 1 for an integer
+								result.add(value);  // Add the integer value
+							}
+							case CHRCONST -> {
+								// Character constant - single value
+								Integer value = decodeChrConst(initValue, loc);
+								result.add(1);  // Length is 1 for a character
+								result.add(value);  // Add the character value
+							}
+							case STRCONST -> {
+								// String constant - multiple values
+								Vector<Integer> values = decodeStrConst(initValue, loc);
+								result.add(values.size());  // Length is the string length
+								// Add all the character values
+								result.addAll(values);  // This adds all elements from the values vector
+							}
 						}
 					}
 				}
-				
+				// Check if no inits
+				if (initCount == 0) {
+					return null;
+				}
+				// Set number of inits
+				result.set(0, initCount);
 				return result;
 			}
 			private int calculateSize(AST.VarDef varDef) {
@@ -395,20 +405,26 @@ public class Memory {
 					AST.AtomExpr initValue = init.value;
 					
 					Integer numOfRepetition = decodeIntConst(init.num, null);
-					Report.Locatable loc = attrAST.attrLoc.get(initValue);
-					switch (initValue.type) {
-						case INTCONST, CHRCONST -> {
-							// For int and char, each element is INT_SIZE
-							totalSize += numOfRepetition * INT_SIZE;
-						}
-						case STRCONST -> {
-							// For string, calculate based on characters
-							Vector<Integer> chars = decodeStrConst(initValue, null);
-							totalSize += numOfRepetition * chars.size() * INT_SIZE;
+					if (numOfRepetition > 0)
+					{
+						switch (initValue.type) {
+							case INTCONST, CHRCONST -> {
+								// For int and char, each element is INT_SIZE
+								totalSize += numOfRepetition * INT_SIZE;
+							}
+							case STRCONST -> {
+								// For string, calculate based on characters
+								Vector<Integer> chars = decodeStrConst(initValue, null);
+								totalSize += numOfRepetition * chars.size() * INT_SIZE;
+							}
 						}
 					}
+	
 				}
-				
+				// Check if empty var 
+				if (totalSize == 0) {
+					return INT_SIZE;
+				}
 				return totalSize;
 			}
 		}		
