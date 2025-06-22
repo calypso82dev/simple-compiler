@@ -26,10 +26,10 @@ public class Machine {
 	}
 
 	/** Ali se opravi testni izpis ukazov. */
-	public static boolean debugInstrsList = false;
+	public static boolean debugInstrsList = true;
 
 	/** Ali se opravi testni izpis vrednost oznak. */
-	public static boolean debugLabelsList = false;
+	public static boolean debugLabelsList = true;
 
 	/** Ali se opravi testni izpis dogajanja na skladu. */
 	public static boolean debugStack = false;
