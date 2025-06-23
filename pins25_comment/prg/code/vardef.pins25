@@ -1,0 +1,14 @@
+fun exit(exitcode)
+fun putint(intvalue)
+fun putstr(straddr)
+
+var a = 19
+var abs = "Hello World\00"
+fun main() =
+    putstr(abs),
+    putint(a),
+    exit(0)
+  
+
+
+  
