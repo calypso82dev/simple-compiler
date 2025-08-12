@@ -3,14 +3,13 @@ fun putint(intvalue)
 fun putstr(straddr)
 
 var c = 12
-fun add(a, b) = a + b
-
-var d = "Hello World\n\00"
+fun add(a, b) =
+    a = 1,
+    a + b
 
 fun main() =
-    putstr("Hello World\n\00"),
+    c = 5,
     putint(add(c, 15)),
-    putstr("\n\00"),
     exit(0)
 
   

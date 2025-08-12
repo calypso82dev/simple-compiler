@@ -165,9 +165,8 @@ public class CodeGen {
 			@SuppressWarnings({ "doclint:missing" })
 			public Generator() {
 			}
-			private static final int INT_SIZE = 4; 
+			private static final int INT_SIZE = 4;
 
-			/* TODO */
 			// Generate unique labels
 			private String nextLabel() {
 				return "L" + (labelCounter++);
@@ -175,70 +174,76 @@ public class CodeGen {
 
 			@Override
 			public List<PDM.CodeInstr> visit(AST.FunDef funDef, Mem.Frame frame) {
-				List<PDM.CodeInstr> funInstr = new ArrayList<>();
-				Report.Locatable funLoc = attrAST.attrLoc.get(funDef);
+				List<PDM.CodeInstr> codeInstr = new ArrayList<>();
+				Report.Locatable loc = attrAST.attrLoc.get(funDef);
+
+                // Retriver Function Frame for current funDef
 				Mem.Frame funFrame = attrAST.attrFrame.get(funDef);
 
-				// Function label
-				PDM.LABEL funLabel = new PDM.LABEL(funDef.name, funLoc);
-				funInstr.add(funLabel);
+				// 1. Function label (Call address)
+				PDM.LABEL funLabel = new PDM.LABEL(funDef.name, loc);
+				codeInstr.add(funLabel);
 
-				// Generate code for function body (statements)
+				// 2. Function body code (statements)
 				for (AST.Stmt stmt : funDef.stmts) {
 					List<PDM.CodeInstr> stmtCode = stmt.accept(this, funFrame);
-					if (stmtCode != null) {
-						funInstr.addAll(stmtCode);
-					}
+                    codeInstr.addAll(stmtCode);
 				}
 
-				// Return instruction - return 0 by default
-				//funInstr.add(new PDM.PUSH(0, funLoc)); // Push return value
-				funInstr.add(new PDM.PUSH(funFrame.parsSize - INT_SIZE, funLoc)); // Push parameter size
-				funInstr.add(new PDM.RETN(funFrame, funLoc)); // Return
+				// 3. Return instruction
+                // Result shoud be at current stack location
+                // Push parameter size (parsSize - SL)
+				codeInstr.add(new PDM.PUSH(funFrame.parsSize - INT_SIZE, loc));
+                // Return instruction
+				codeInstr.add(new PDM.RETN(funFrame, loc));
 
 				// Store generated code
-				attrAST.attrCode.put(funDef, funInstr);
-				return funInstr;
+				attrAST.attrCode.put(funDef, codeInstr);
+				return codeInstr;
 			}
 
 			@Override
 			public List<PDM.CodeInstr> visit(AST.VarDef varDef, Mem.Frame frame) {
-				List<PDM.CodeInstr> varInstr = new ArrayList<>();
-				Report.Locatable varLoc = attrAST.attrLoc.get(varDef);
-				Mem.Access varAccess = attrAST.attrVarAccess.get(varDef);
+				List<PDM.CodeInstr> codeInstr = new ArrayList<>();
+				Report.Locatable loc = attrAST.attrLoc.get(varDef);
 
-			if (varAccess instanceof Mem.AbsAccess absAccess) { 
-					// Static variable - generate data segment 
-					List<PDM.DataInstr> varData = new ArrayList<>(); 
-					
-					// 1. FIRST: Variable storage space
-					varData.add(new PDM.LABEL(varDef.name, varLoc));           // Label "a"
-					varData.add(new PDM.SIZE(absAccess.size, varLoc));         // Reserve space for variable
-					
-					// 2. SECOND: Initialization data (if exists)
-					if (absAccess.inits != null) { 
-						varData.add(new PDM.LABEL(varDef.name + "_init", varLoc)); // Label "a_init"
-						
-						// Add all initialization data values
-						List<Integer> inits = absAccess.inits; 
-						for (Integer value : inits) { 
-							varData.add(new PDM.DATA(value, varLoc)); 
-						} 
-						
-						// Generate initialization code 
-						varInstr.add(new PDM.NAME(varDef.name, varLoc));           // Push variable address
-						varInstr.add(new PDM.NAME(varDef.name + "_init", varLoc)); // Push init data address
-						varInstr.add(new PDM.INIT(varLoc));                        // Initialize variable 
-					} 
-					
-					// Store data segment for this variable 
-					attrAST.attrData.put(varDef, varData); 
-				} 
-				// Local variables (RelAccess) are handled in LetStmt
+				Mem.Access var = attrAST.attrVarAccess.get(varDef);
+
+                // Global variables
+                // Global variables - generate INIT code for initialization
+                if (var instanceof Mem.AbsAccess && var.inits != null) {
+                    // Variable address
+                    codeInstr.add(new PDM.NAME(varDef.name, loc));
+                    // Variable INIT address
+                    codeInstr.add(new PDM.NAME(varDef.name + "_INIT", loc));
+                    // Call INIT
+                    codeInstr.add(new PDM.INIT(loc));
+                }
+
+                // Local/Global variable - generate data segment
+                List<PDM.DataInstr> varData = new ArrayList<>();
+
+                // 1. FIRST: Variable storage space
+                varData.add(new PDM.LABEL(varDef.name, loc));           // Label "a"
+                varData.add(new PDM.SIZE(var.size, loc));         // Reserve space for variable
+
+                // 2. SECOND: Initialization data (if exists)
+                if (var.inits != null) {
+                    varData.add(new PDM.LABEL(varDef.name + "_INIT", loc)); // Label "a_INIT"
+
+                    // Add all initialization data values
+                    List<Integer> inits = var.inits;
+                    for (Integer value : inits) {
+                        varData.add(new PDM.DATA(value, loc));
+                    }
+                }
+
+                // Store data segment for this variable
+                attrAST.attrData.put(varDef, varData);
 
 				// Store code segment for this variable
-				attrAST.attrCode.put(varDef, varInstr);
-				return varInstr;
+				attrAST.attrCode.put(varDef, codeInstr);
+				return codeInstr;
 			}
 
 			@Override
@@ -248,38 +253,29 @@ public class CodeGen {
 
 				// Generate code for expression
 				List<PDM.CodeInstr> exprCode = exprStmt.expr.accept(this, frame);
-				if (exprCode != null) {
-					stmtInstr.addAll(exprCode);
-				}
+                stmtInstr.addAll(exprCode);
 
-				// Pop the result (expression statement doesn't use the value)
-				// stmtInstr.add(new PDM.PUSH(INT_SIZE, stmtLoc));
-				// stmtInstr.add(new PDM.POPN(stmtLoc));
 
 				return stmtInstr;
 			}
 
 			@Override
 			public List<PDM.CodeInstr> visit(AST.AssignStmt assignStmt, Mem.Frame frame) {
-				List<PDM.CodeInstr> assignInstr = new ArrayList<>();
-				Report.Locatable assignLoc = attrAST.attrLoc.get(assignStmt);
+				List<PDM.CodeInstr> codeInstr = new ArrayList<>();
+				Report.Locatable loc = attrAST.attrLoc.get(assignStmt);
 
-				// Generate code for destination address (left side)
+                // 1. Source value (right side)
+                List<PDM.CodeInstr> srcCode = assignStmt.srcExpr.accept(this, frame);
+                codeInstr.addAll(srcCode);
+
+				// 2. Destination address (left side)
 				List<PDM.CodeInstr> dstCode = generateAddress(assignStmt.dstExpr, frame);
-				if (dstCode != null) {
-					assignInstr.addAll(dstCode);
-				}
+                codeInstr.addAll(dstCode);
 
-				// Generate code for source value (right side)
-				List<PDM.CodeInstr> srcCode = assignStmt.srcExpr.accept(this, frame);
-				if (srcCode != null) {
-					assignInstr.addAll(srcCode);
-				}
+                // 3. SAVE value to memory on address
+				codeInstr.add(new PDM.SAVE(loc));
 
-				// Save: address is on stack, value is on top
-				assignInstr.add(new PDM.SAVE(assignLoc));
-
-				return assignInstr;
+				return codeInstr;
 			}
 
 			@Override
@@ -293,9 +289,8 @@ public class CodeGen {
 
 				// Generate condition code (value is now on stack)
 				List<PDM.CodeInstr> condCode = ifStmt.cond.accept(this, frame);
-				if (condCode != null) {
-					ifInstr.addAll(condCode);
-				}
+                ifInstr.addAll(condCode);
+
 
 				// First jump: CJMP - if condition != 0, go to then; if condition == 0, go to else
 				ifInstr.add(new PDM.NAME(thenLabel, ifLoc));     // addr2 - go to then (condition != 0)
@@ -306,9 +301,7 @@ public class CodeGen {
 				ifInstr.add(new PDM.LABEL(thenLabel, ifLoc));
 				for (AST.Stmt stmt : ifStmt.thenStmts) {
 					List<PDM.CodeInstr> stmtCode = stmt.accept(this, frame);
-					if (stmtCode != null) {
-						ifInstr.addAll(stmtCode);
-					}
+                    ifInstr.addAll(stmtCode);
 				}
 
 				// Second jump: UJMP - after then statements, jump to end (skip else)
@@ -319,9 +312,8 @@ public class CodeGen {
 				ifInstr.add(new PDM.LABEL(elseLabel, ifLoc));
 				for (AST.Stmt stmt : ifStmt.elseStmts) {
 					List<PDM.CodeInstr> stmtCode = stmt.accept(this, frame);
-					if (stmtCode != null) {
-						ifInstr.addAll(stmtCode);
-					}
+                    ifInstr.addAll(stmtCode);
+
 				}
 
 				// End label
@@ -344,9 +336,7 @@ public class CodeGen {
 
 				// Generate condition code (value is now on stack)
 				List<PDM.CodeInstr> condCode = whileStmt.cond.accept(this, frame);
-				if (condCode != null) {
-					whileInstr.addAll(condCode);
-				}
+                whileInstr.addAll(condCode);
 
 				// First jump: CJMP - if condition == 0, exit loop; if condition != 0, continue to body
 				whileInstr.add(new PDM.NAME(bodyLabel, whileLoc));   // addr2 - go to body (condition != 0)
@@ -357,9 +347,8 @@ public class CodeGen {
 				whileInstr.add(new PDM.LABEL(bodyLabel, whileLoc));
 				for (AST.Stmt stmt : whileStmt.stmts) {
 					List<PDM.CodeInstr> stmtCode = stmt.accept(this, frame);
-					if (stmtCode != null) {
-						whileInstr.addAll(stmtCode);
-					}
+                    whileInstr.addAll(stmtCode);
+
 				}
 
 				// Second jump: UJMP - after body, jump back to start (condition check)
@@ -398,9 +387,8 @@ public class CodeGen {
 				// Generate code for statements
 				for (AST.Stmt stmt : letStmt.stmts) {
 					List<PDM.CodeInstr> stmtCode = stmt.accept(this, frame);
-					if (stmtCode != null) {
-						letInstr.addAll(stmtCode);
-					}
+                    letInstr.addAll(stmtCode);
+
 				}
 
 				return letInstr;
@@ -422,37 +410,18 @@ public class CodeGen {
 					}
 					case STRCONST -> {
 						Vector<Integer> chars = Memory.decodeStrConst(atomExpr, atomLoc);
-						
-						// Check if we're currently processing a function call
-						if (processingCallExpr) {
-							// Generate simple null-terminated string for function calls like putstr
-							String strLabel = "STR_" + labelCounter++;
-							atomInstr.add(new PDM.NAME(strLabel, atomLoc));
-							
-							List<PDM.DataInstr> strData = new ArrayList<>();
-							strData.add(new PDM.LABEL(strLabel, atomLoc));
-							// Simple format: just characters
-							for (Integer ch : chars) {
-								strData.add(new PDM.DATA(ch, atomLoc));
-							}
-							attrAST.attrData.put(atomExpr, strData);
-							
-						} else {
-							// Generate INIT format with metadata for variable initialization
-							String initLabel = "STR_INIT_" + labelCounter++;
-							atomInstr.add(new PDM.NAME(initLabel, atomLoc));
-							
-							List<PDM.DataInstr> initData = new ArrayList<>();
-							initData.add(new PDM.LABEL(initLabel, atomLoc));
-							// INIT format: n, n1, l1, data...
-							initData.add(new PDM.DATA(1, atomLoc));                      // n = 1 (one init group)
-							initData.add(new PDM.DATA(1, atomLoc));                      // n1 = 1 (repeat 1 time)
-							initData.add(new PDM.DATA(chars.size() + 1, atomLoc));       // l1 = length + null terminator
-							for (Integer ch : chars) {
-								initData.add(new PDM.DATA(ch, atomLoc));
-							}
-							attrAST.attrData.put(atomExpr, initData);
-						}
+
+                        // Generate simple null-terminated string for function calls like putstr
+                        String strLabel = "STR_" + labelCounter++;
+                        atomInstr.add(new PDM.NAME(strLabel, atomLoc));
+
+                        List<PDM.DataInstr> strData = new ArrayList<>();
+                        strData.add(new PDM.LABEL(strLabel, atomLoc));
+                        // Simple format: just characters
+                        for (Integer ch : chars) {
+                            strData.add(new PDM.DATA(ch, atomLoc));
+                        }
+                        attrAST.attrData.put(atomExpr, strData);
 					}
 				}
 
@@ -461,43 +430,39 @@ public class CodeGen {
 
 			@Override
 			public List<PDM.CodeInstr> visit(AST.UnExpr unExpr, Mem.Frame frame) {
-				List<PDM.CodeInstr> unInstr = new ArrayList<>();
-				Report.Locatable unLoc = attrAST.attrLoc.get(unExpr);
+				List<PDM.CodeInstr> codeInstr = new ArrayList<>();
+				Report.Locatable loc = attrAST.attrLoc.get(unExpr);
 
 				switch (unExpr.oper) {
 					case MEMADDR -> {
 						// Generate address of operand
 						List<PDM.CodeInstr> addrCode = generateAddress(unExpr.expr, frame);
-						if (addrCode != null) {
-							unInstr.addAll(addrCode);
-						}
+                        codeInstr.addAll(addrCode);
 					}
 					case VALUEAT -> {
 						// Generate code for address expression
 						List<PDM.CodeInstr> exprCode = unExpr.expr.accept(this, frame);
-						if (exprCode != null) {
-							unInstr.addAll(exprCode);
-						}
+                        codeInstr.addAll(exprCode);
+
 						// Load value at address
-						unInstr.add(new PDM.LOAD(unLoc));
+						codeInstr.add(new PDM.LOAD(loc));
 					}
 					default -> {
 						// Generate code for operand
 						List<PDM.CodeInstr> exprCode = unExpr.expr.accept(this, frame);
-						if (exprCode != null) {
-							unInstr.addAll(exprCode);
-						}
+                        codeInstr.addAll(exprCode);
+
 						
 						// Apply unary operator
 						switch (unExpr.oper) {
-							case NOT -> unInstr.add(new PDM.OPER(PDM.OPER.Oper.NOT, unLoc));
-							case SUB -> unInstr.add(new PDM.OPER(PDM.OPER.Oper.NEG, unLoc));
+							case NOT -> codeInstr.add(new PDM.OPER(PDM.OPER.Oper.NOT, loc));
+							case SUB -> codeInstr.add(new PDM.OPER(PDM.OPER.Oper.NEG, loc));
 							case ADD -> { /* No operation needed for unary plus */ }
 						}
 					}
 				}
 
-				return unInstr;
+				return codeInstr;
 			}
 
 			@Override
@@ -507,15 +472,13 @@ public class CodeGen {
 
 				// Generate code for first operand
 				List<PDM.CodeInstr> fstCode = binExpr.fstExpr.accept(this, frame);
-				if (fstCode != null) {
-					binInstr.addAll(fstCode);
-				}
+                binInstr.addAll(fstCode);
+
 
 				// Generate code for second operand
 				List<PDM.CodeInstr> sndCode = binExpr.sndExpr.accept(this, frame);
-				if (sndCode != null) {
-					binInstr.addAll(sndCode);
-				}
+                binInstr.addAll(sndCode);
+
 
 				// Apply binary operator
 				PDM.OPER.Oper oper = switch (binExpr.oper) {
@@ -540,143 +503,105 @@ public class CodeGen {
 
 			@Override
 			public List<PDM.CodeInstr> visit(AST.VarExpr varExpr, Mem.Frame frame) {
-				List<PDM.CodeInstr> varInstr = new ArrayList<>();
-				Report.Locatable varLoc = attrAST.attrLoc.get(varExpr);
+				List<PDM.CodeInstr> codeInstr = new ArrayList<>();
+				Report.Locatable loc = attrAST.attrLoc.get(varExpr);
 
-				// Search through all variable definitions to find matching name
-				for (Map.Entry<AST.VarDef, Mem.Access> entry : attrAST.attrVarAccess.entrySet()) {
-					AST.VarDef vDef = entry.getKey();
-					if (vDef.name.equals(varExpr.name)) {
-						Mem.Access varAccess = entry.getValue();
-						if (varAccess instanceof Mem.AbsAccess) {
-							// Static variable - load by name
-							varInstr.add(new PDM.NAME(varExpr.name, varLoc));
-							varInstr.add(new PDM.LOAD(varLoc));
-						} else if (varAccess instanceof Mem.RelAccess relAccess) {
-							// Local variable - load relative to frame pointer
-							varInstr.add(new PDM.REGN(PDM.REGN.Reg.FP, varLoc));
-							varInstr.add(new PDM.PUSH(relAccess.offset, varLoc));
-							varInstr.add(new PDM.OPER(PDM.OPER.Oper.ADD, varLoc));
-							varInstr.add(new PDM.LOAD(varLoc));
-						}
-						return varInstr;
-					}
-				}
+                AST.Def def = attrAST.attrDef.get(varExpr);
 
-				// Search through all parameter definitions to find matching name
-				for (Map.Entry<AST.ParDef, Mem.RelAccess> entry : attrAST.attrParAccess.entrySet()) {
-					AST.ParDef pDef = entry.getKey();
-					if (pDef.name.equals(varExpr.name)) {
-						Mem.RelAccess parAccess = entry.getValue();
-						varInstr.add(new PDM.REGN(PDM.REGN.Reg.FP, varLoc));
-						varInstr.add(new PDM.PUSH(parAccess.offset, varLoc));
-						varInstr.add(new PDM.OPER(PDM.OPER.Oper.ADD, varLoc));
-						varInstr.add(new PDM.LOAD(varLoc));
-						return varInstr;
-					}
-				}
+                if (def instanceof AST.VarDef varDef) {
+                    // Variable - get its memory access
+                    Mem.Access var = attrAST.attrVarAccess.get(varDef);
 
-				// If not found, it might be an error or built-in function
-				throw new Report.Error(varLoc, "Unknown variable: " + varExpr.name);
+                    if (var instanceof Mem.AbsAccess) {
+                        // Global variable
+                        codeInstr.add(new PDM.NAME(varExpr.name, loc));
+                        codeInstr.add(new PDM.LOAD(loc));
+                    } else if (var instanceof Mem.RelAccess relAccess) {
+                        // Local variable
+                        codeInstr.add(new PDM.REGN(PDM.REGN.Reg.FP, loc));
+                        codeInstr.add(new PDM.PUSH(relAccess.offset, loc));
+                        codeInstr.add(new PDM.OPER(PDM.OPER.Oper.ADD, loc));
+                        codeInstr.add(new PDM.LOAD(loc));
+                    }
+                } else if (def instanceof AST.ParDef parDef) {
+                    // Parameter
+                    Mem.RelAccess par = attrAST.attrParAccess.get(parDef);
+                    codeInstr.add(new PDM.REGN(PDM.REGN.Reg.FP, loc));
+                    codeInstr.add(new PDM.PUSH(par.offset, loc));
+                    codeInstr.add(new PDM.OPER(PDM.OPER.Oper.ADD, loc));
+                    codeInstr.add(new PDM.LOAD(loc));
+                }
+
+                return codeInstr;
 			}
-
-			// Add this field to the Generator class
-			private boolean processingCallExpr = false;
 
 			@Override
 			public List<PDM.CodeInstr> visit(AST.CallExpr callExpr, Mem.Frame frame) {
-				List<PDM.CodeInstr> callInstr = new ArrayList<>();
-				Report.Locatable callLoc = attrAST.attrLoc.get(callExpr);
+				List<PDM.CodeInstr> codeInstr = new ArrayList<>();
+				Report.Locatable loc = attrAST.attrLoc.get(callExpr);
 
-				// Find the function definition by searching through frames
-				Mem.Frame calledFrame = null;
-				for (Map.Entry<AST.FunDef, Mem.Frame> entry : attrAST.attrFrame.entrySet()) {
-					AST.FunDef fDef = entry.getKey();
-					if (fDef.name.equals(callExpr.name)) {
-						calledFrame = entry.getValue();
-						break;
-					}
-				}
 
-				if (calledFrame != null) {
-					// Set flag before processing arguments
-        			processingCallExpr = true;
-		
-					// Push arguments in reverse order
-					for (int i = callExpr.args.size() - 1; i >= 0; i--) {
-						List<PDM.CodeInstr> argCode = callExpr.args.get(i).accept(this, frame);
-						if (argCode != null) {
-							callInstr.addAll(argCode);
-						}
-					}
-					// Reset flag after processing arguments
-        			processingCallExpr = false;
+                // 1. Push arguments in reverse order
+                for (int i = callExpr.args.size() - 1; i >= 0; i--) {
+                    List<PDM.CodeInstr> argCode = callExpr.args.get(i).accept(this, frame);
+                    codeInstr.addAll(argCode);
+                }
 
-					// Push static link (current frame pointer for nested functions)
-					if (calledFrame.depth > frame.depth + 1) {
-						// Need to traverse static links
-						callInstr.add(new PDM.REGN(PDM.REGN.Reg.FP, callLoc));
-						// Add code to follow static links if needed
-					} else {
-						callInstr.add(new PDM.REGN(PDM.REGN.Reg.FP, callLoc));
-					}
+                // 2. Add Static Link
+                codeInstr.add(new PDM.REGN(PDM.REGN.Reg.FP, loc));
 
-					// Push function address and call
-					callInstr.add(new PDM.NAME(callExpr.name, callLoc));
-					callInstr.add(new PDM.CALL(calledFrame, callLoc));
-				} else {
-					// Built-in function or error
-					throw new Report.Error(callLoc, "Unknown function: " + callExpr.name);
-				}
+                // 3. Push function address and call
+                codeInstr.add(new PDM.NAME(callExpr.name, loc));
+                codeInstr.add(new PDM.CALL(frame, loc));
 
-				return callInstr;
+				return codeInstr;
 			}
 
-			// Helper method to generate address of an expression (for assignments and references)
-			private List<PDM.CodeInstr> generateAddress(AST.Expr expr, Mem.Frame frame) {
-				List<PDM.CodeInstr> addrInstr = new ArrayList<>();
-				Report.Locatable loc = attrAST.attrLoc.get(expr);
+            // Helper method to generate adress of Expr
+            private List<PDM.CodeInstr> generateAddress(AST.Expr expr, Mem.Frame frame) {
+                List<PDM.CodeInstr> codeInstr = new ArrayList<>();
+                Report.Locatable loc = attrAST.attrLoc.get(expr);
 
-				if (expr instanceof AST.VarExpr varExpr) {
-					// Search through variables
-					for (Map.Entry<AST.VarDef, Mem.Access> entry : attrAST.attrVarAccess.entrySet()) {
-						AST.VarDef vDef = entry.getKey();
-						if (vDef.name.equals(varExpr.name)) {
-							Mem.Access varAccess = entry.getValue();
-							if (varAccess instanceof Mem.AbsAccess) {
-								// Static variable address
-								addrInstr.add(new PDM.NAME(varExpr.name, loc));
-							} else if (varAccess instanceof Mem.RelAccess relAccess) {
-								// Local variable address
-								addrInstr.add(new PDM.REGN(PDM.REGN.Reg.FP, loc));
-								addrInstr.add(new PDM.PUSH(relAccess.offset, loc));
-								addrInstr.add(new PDM.OPER(PDM.OPER.Oper.ADD, loc));
-							}
-							return addrInstr;
-						}
-					}
-					
-					// Search through parameters
-					for (Map.Entry<AST.ParDef, Mem.RelAccess> entry : attrAST.attrParAccess.entrySet()) {
-						AST.ParDef pDef = entry.getKey();
-						if (pDef.name.equals(varExpr.name)) {
-							Mem.RelAccess parAccess = entry.getValue();
-							addrInstr.add(new PDM.REGN(PDM.REGN.Reg.FP, loc));
-							addrInstr.add(new PDM.PUSH(parAccess.offset, loc));
-							addrInstr.add(new PDM.OPER(PDM.OPER.Oper.ADD, loc));
-							return addrInstr;
-						}
-					}
-				} else if (expr instanceof AST.UnExpr unExpr && unExpr.oper == AST.UnExpr.Oper.VALUEAT) {
-					// Dereference - the address is the value of the expression
-					List<PDM.CodeInstr> exprCode = unExpr.expr.accept(this, frame);
-					if (exprCode != null) {
-						addrInstr.addAll(exprCode);
-					}
-				}
+                if (expr instanceof AST.VarExpr varExpr) {
+                    // Use semantic analysis to find the definition
+                    AST.Def definition = attrAST.attrDef.get(varExpr);
 
-				return addrInstr;
-			}
+                    if (definition instanceof AST.VarDef varDef) {
+                        // Variable definition
+                        Mem.Access var = attrAST.attrVarAccess.get(varDef);
+
+                        if (var instanceof Mem.AbsAccess) {
+                            // Global variable - just push its address
+                            codeInstr.add(new PDM.NAME(varExpr.name, loc));
+                            // NO LOAD - we want the address, not the value
+
+                        } else if (var instanceof Mem.RelAccess relAccess) {
+                            // Local variable - calculate its address
+                            codeInstr.add(new PDM.REGN(PDM.REGN.Reg.FP, loc));
+                            codeInstr.add(new PDM.PUSH(relAccess.offset, loc));
+                            codeInstr.add(new PDM.OPER(PDM.OPER.Oper.ADD, loc));
+                            // NO LOAD - we want the address, not the value
+                        }
+
+                    } else if (definition instanceof AST.ParDef parDef) {
+                        // Parameter - calculate its address
+                        Mem.RelAccess par = attrAST.attrParAccess.get(parDef);
+                        codeInstr.add(new PDM.REGN(PDM.REGN.Reg.FP, loc));
+                        codeInstr.add(new PDM.PUSH(par.offset, loc));
+                        codeInstr.add(new PDM.OPER(PDM.OPER.Oper.ADD, loc));
+                        // NO LOAD - we want the address, not the value
+                    }
+                }
+
+//                } else if (expr instanceof AST.UnExpr unExpr && unExpr.oper == AST.UnExpr.Oper.VALUEAT) {
+//                    // Dereference (^expr) - the address is the value of the expression
+//                    List<PDM.CodeInstr> exprCode = unExpr.expr.accept(this, frame);
+//                    addrInstr.addAll(exprCode);
+//                    // For ^expr, the expression evaluates to an address, so we use that directly
+//                }
+
+                return codeInstr;
+            }
 
 			// Visit methods that don't generate code directly
 			@Override
@@ -690,8 +615,6 @@ public class CodeGen {
 				}
 				return allInstr;
 			}
-
-
 
 
 		}

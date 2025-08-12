@@ -4,7 +4,7 @@ fun putstr(straddr)
 
 
 fun main() = 
-    while 1 == 1 do 
+    while 1 != 1 do
         putstr("While body\n\00")
     end,
     putstr("End while\n\00"),
