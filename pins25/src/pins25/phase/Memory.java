@@ -339,17 +339,17 @@ public class Memory {
 				}
 				
 				return null;
-			}	
+			}
 
 			private Vector<Integer> convertInits(AST.Nodes<AST.Init> inits) {
 				if (inits == null || inits.size() == 0) {
 					return null;  // No initializers
 				}
-				
+
 				// Create the output vector
 				Vector<Integer> result = new Vector<>();
 				result.add(0);  // Count of initializers (placeholder)
-				
+
 				int initCount = 0;
 				// Process each initializer
 				for (AST.Init init : inits) {
@@ -398,12 +398,12 @@ public class Memory {
 				if (varDef.inits == null || varDef.inits.size() == 0) {
 					return INT_SIZE;
 				}
-				
+
 				int totalSize = 0;
-				
+
 				for (AST.Init init : varDef.inits) {
 					AST.AtomExpr initValue = init.value;
-					
+
 					Integer numOfRepetition = decodeIntConst(init.num, null);
 					if (numOfRepetition > 0)
 					{
@@ -419,15 +419,15 @@ public class Memory {
 							}
 						}
 					}
-	
+
 				}
-				// Check if empty var 
+				// Check if empty var
 				if (totalSize == 0) {
 					return INT_SIZE;
 				}
 				return totalSize;
 			}
-		}		
+		}
 	}
 
 	/**
@@ -471,7 +471,7 @@ public class Memory {
 		}
 	}
 
-	/**
+	/** ,
 	 * Izracuna vrednost konstantnega niza.
 	 * 
 	 * @param strAtomExpr Konstantni niz.

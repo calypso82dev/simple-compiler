@@ -1,0 +1,216 @@
+// Built-in functions
+fun exit(exitcode)
+fun putint(intvalue)
+fun putstr(straddr)
+
+// Simple test case from your example
+var i = 2
+
+fun foo(x) =
+    let
+        var i = 12
+        fun foo2() = i = 25, 0
+    in
+        foo2(),
+        x = i
+    end,
+    x
+
+// Test Case 1: Basic nested let with variable shadowing
+var global_x = 100
+
+fun test_basic() =
+    let
+        var x = 10          // shadows global_x
+        var y = 20
+    in
+        let
+            var x = 30      // shadows outer let x
+            var z = x + y   // z = 30 + 20 = 50
+        in
+            x + z           // returns 30 + 50 = 80
+        end
+    end
+
+// Test Case 2: Deep nesting with static link traversal
+var global_i = 1000
+
+fun test_deep_nesting() =
+    let
+        var a = 1
+        fun level1() =
+            let
+                var b = 2
+                fun level2() =
+                    let
+                        var c = 3
+                        fun level3() =
+                            let
+                                var d = 4
+                            in
+                                a + b + c + d + global_i  // 1+2+3+4+1000 = 1010
+                            end
+                    in
+                        level3()
+                    end
+            in
+                level2()
+            end
+    in
+        level1()
+    end
+
+// Test Case 3: Variable modification across scopes
+fun test_modification() =
+    let
+        var counter = 0
+        fun increment() = counter = counter + 1
+        fun double_increment() =
+            let
+                fun inner_inc() = counter = counter + 2
+            in
+                increment(),     // counter = 1
+                inner_inc(),     // counter = 3
+                counter
+            end
+    in
+        double_increment()       // returns 3
+    end
+
+// Test Case 4: Multiple parameters and local variables
+fun test_params(x, y) =
+    let
+        var local_a = x * 2
+        var local_b = y * 3
+        fun helper(z) =
+            let
+                var temp = z + local_a + local_b
+                fun inner_helper(w) =
+                    temp + w + x + y    // accesses all scopes
+            in
+                inner_helper(5)
+            end
+    in
+        helper(10)
+    end
+
+// Test Case 5: Complex shadowing and scope resolution
+var name = "global"
+
+fun test_shadowing() =
+    let
+        var name = "outer"
+        var value = 42
+        fun show_outer() = name     // should return "outer"
+        fun nested_scope() =
+            let
+                var name = "middle"
+                fun show_middle() = name    // should return "middle"
+                fun deeply_nested() =
+                    let
+                        var name = "inner"
+                        var result = value  // should access outer scope's value (42)
+                    in
+                        name                // should return "inner"
+                    end
+            in
+                show_middle(),      // "middle"
+                deeply_nested()     // "inner"
+            end
+    in
+        show_outer(),       // "outer"
+        nested_scope()      // calls nested function
+    end
+
+// Test Case 6: Recursive function with local variables
+fun factorial(n) =
+    let
+        var acc = 1
+        fun fact_helper(num) =
+            if (num <= 1) then
+                acc
+            else
+                let
+                    var temp = acc * num
+                in
+                    acc = temp,
+                    fact_helper(num - 1)
+                end
+    in
+        fact_helper(n)
+    end
+
+// Test Case 7: Multiple functions sharing variables
+fun test_shared_vars() =
+    let
+        var shared = 10
+        var count = 0
+
+        fun add_to_shared(x) =
+            let
+                var old_value = shared
+            in
+                shared = shared + x,
+                count = count + 1,
+                old_value
+            end
+
+        fun multiply_shared(x) =
+            let
+                var old_value = shared
+            in
+                shared = shared * x,
+                count = count + 1,
+                old_value
+            end
+
+        fun get_stats() =
+            let
+                var current = shared
+                var operations = count
+            in
+                current + operations    // shared + count
+            end
+    in
+        add_to_shared(5),       // shared = 15, count = 1
+        multiply_shared(2),     // shared = 30, count = 2
+        get_stats()             // returns 30 + 2 = 32
+    end
+
+// Main function to run tests
+fun main() =
+    putstr("Running nested scope tests:\n"),
+
+    putstr("Test basic: "),
+    putint(test_basic()),           // Should return 80
+    putstr("\n"),
+
+    putstr("Test deep nesting: "),
+    putint(test_deep_nesting()),    // Should return 1010
+    putstr("\n"),
+
+    putstr("Test modification: "),
+    putint(test_modification()),    // Should return 3
+    putstr("\n"),
+
+    putstr("Test params: "),
+    putint(test_params(5, 3)),      // Should work with parameters
+    putstr("\n"),
+
+    putstr("Test factorial: "),
+    putint(factorial(5)),           // Should return 120
+    putstr("\n"),
+
+    putstr("Test shared vars: "),
+    putint(test_shared_vars()),     // Should return 32
+    putstr("\n"),
+
+    putstr("Your foo test: "),
+    putint(foo(5)),                 // Should return 25
+    putstr("\n"),
+
+    putstr("Global i unchanged: "),
+    putint(i),                      // Should still be 2
+    putstr("\n"),
+
+    exit(0)

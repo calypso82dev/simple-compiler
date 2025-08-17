@@ -74,9 +74,9 @@ public class AST {
 		 * @param nodes Zaporedje vozlisc abstraktnega sintaksnega drevesa.
 		 */
 		@SuppressWarnings("unchecked")
-		public Nodes(final List<ANode> nodes) {
-			super();
-			this.nodes = (ANode[]) (new Node[nodes.size()]);
+        public Nodes(final List<ANode> nodes) {
+            super();
+            this.nodes = (ANode[]) (new Node[nodes.size()]);
 			int index = 0;
 			for (final ANode n : nodes)
 				this.nodes[index++] = n;
