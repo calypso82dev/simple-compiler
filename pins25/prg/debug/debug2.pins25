@@ -1,0 +1,12 @@
+fun exit(exitcode)
+fun putint(intvalue)
+fun putstr(straddr)
+
+fun add(a, b) = a + b
+
+
+fun main() =
+    putstr("19 + 2 = \00"),
+    putint(add(19, 2)),
+    putstr("\n\00"),
+    exit(0)
