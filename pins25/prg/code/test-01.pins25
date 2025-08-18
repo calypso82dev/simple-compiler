@@ -1,0 +1,29 @@
+fun exit(exitcode)
+fun getint()
+fun putint(intvalue)
+fun getstr(straddr)
+fun putstr(straddr)
+fun new(size)
+fun del(addr)
+
+fun fibrec(n)=
+	let var f1=1 var f2=1 var i=0
+	in	i=2,while i<n do
+			let var f=0 in f=f1+f2,f1=f2,f2=f end,
+			i=i+1
+		end,f2
+	end
+
+fun main()=
+	let var i=0 var n=0
+	in	n=20,
+		i=1,while i<=n do
+			putstr("FIBONACCI(\00"),putint(i),putstr(")=\00"),
+			putint(fibrec(i)),
+			putstr("\n\00"),
+			i=i+1
+		end,
+		0
+	end
+
+
