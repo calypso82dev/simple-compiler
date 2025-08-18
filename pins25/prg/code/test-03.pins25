@@ -1,11 +1,3 @@
-fun exit(exitcode)
-fun getint()
-fun putint(intvalue)
-fun getstr(straddr)
-fun putstr(straddr)
-fun new(size)
-fun del(addr)
-
 fun fibrec(n)=
 	let var memo=0 var f=0
 		fun rec(n)=
@@ -36,3 +28,10 @@ fun main()=
 		0
 	end
 
+fun exit(exitcode)
+fun getint()
+fun putint(intvalue)
+fun getstr(straddr)
+fun putstr(straddr)
+fun new(size)
+fun del(addr)

@@ -1,18 +1,20 @@
-fun exit(exitcode)
-fun getint()
-fun putint(intvalue)
-fun getstr(straddr)
-fun putstr(straddr)
-fun new(size)
-fun del(addr)
-
 var seed=1
 fun random()=seed=seed*1664525+1013904223,seed
 
 fun heapsort(arraddr,n)=
 	let
 		var tmp=0 var cmps=0
-
+		fun heapify(n)=
+			let
+				var r=0
+			in
+				r=n/2,
+				while r>0 do
+					r=r-1,
+					siftdown(r,n)
+				end,
+				0
+			end
 		fun siftdown(r,n)=
 			let
 				var c=0 var tmp=0
@@ -33,17 +35,6 @@ fun heapsort(arraddr,n)=
 				end,
 				0
 			end
-        fun heapify(n)=
-            let
-                var r=0
-            in
-                r=n/2,
-                while r>0 do
-                    r=r-1,
-                    siftdown(r,n)
-                end,
-                0
-            end
 	in
 		heapify(n),
 		n=n-1,
@@ -93,3 +84,10 @@ fun main()=
 		0
 	end
 
+fun exit(exitcode)
+fun getint()
+fun putint(intvalue)
+fun getstr(straddr)
+fun putstr(straddr)
+fun new(size)
+fun del(addr)

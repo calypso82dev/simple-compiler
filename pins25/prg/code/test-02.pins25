@@ -1,15 +1,7 @@
-fun exit(exitcode)
-fun getint()
-fun putint(intvalue)
-fun getstr(straddr)
-fun putstr(straddr)
-fun new(size)
-fun del(addr)
-
 fun fibrec(n)=
 	let var f=0
 	in 	if n==1 || n==2 then f=1 else f=fibrec(n-1)+fibrec(n-2) end, f end
-
+	
 fun main()=
 	let var i=0 var n=0
 	in	n=20,
@@ -22,3 +14,10 @@ fun main()=
 		0
 	end
 
+fun exit(exitcode)
+fun getint()
+fun putint(intvalue)
+fun getstr(straddr)
+fun putstr(straddr)
+fun new(size)
+fun del(addr)

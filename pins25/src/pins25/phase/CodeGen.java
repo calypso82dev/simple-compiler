@@ -17,7 +17,7 @@ public class CodeGen {
 	/**
 	 * Abstraktno sintaksno drevo z dodanimi atributi izracuna pomnilniske
 	 * predstavitve.
-	 * 
+	 *
 	 * Atributi:
 	 * <ol>
 	 * <li>({@link Abstr}) lokacija kode, ki pripada posameznemu vozliscu;</li>
@@ -40,7 +40,7 @@ public class CodeGen {
 
 		/**
 		 * Ustvari novo abstraktno sintaksno drevo z dodanimi atributi generiranja kode.
-		 * 
+		 *
 		 * @param attrAST  Abstraktno sintaksno drevo z dodanimi atributi pomnilniske
 		 *                 predstavitve.
 		 * @param attrCode Attribut: seznam ukazov, ki predstavljajo kodo programa.
@@ -55,7 +55,7 @@ public class CodeGen {
 
 		/**
 		 * Ustvari novo abstraktno sintaksno drevo z dodanimi atributi generiranja kode.
-		 * 
+		 *
 		 * @param attrAST Abstraktno sintaksno drevo z dodanimi atributi generiranja
 		 *                kode.
 		 */
@@ -110,7 +110,7 @@ public class CodeGen {
 
 	/**
 	 * Izracuna kodo programa
-	 * 
+	 *
 	 * @param memoryAttrAST Abstraktno sintaksno drevo z dodanimi atributi izracuna
 	 *                      pomnilniske predstavitve.
 	 * @return Abstraktno sintaksno drevo z dodanimi atributi izracuna pomnilniske
@@ -136,7 +136,7 @@ public class CodeGen {
 
 		/**
 		 * Ustvari nov generator kode v abstraktnem sintaksnem drevesu.
-		 * 
+		 *
 		 * @param attrAST Abstraktno sintaksno drevo z dodanimi atributi izracuna
 		 *                pomnilniske predstavitve.
 		 */
@@ -146,7 +146,7 @@ public class CodeGen {
 
 		/**
 		 * Sprozi generiranje kode v abstraktnem sintaksnem drevesu.
-		 * 
+		 *
 		 * @return Abstraktno sintaksno drevo z dodanimi atributi izracuna pomnilniske
 		 *         predstavitve.
 		 */
@@ -164,33 +164,50 @@ public class CodeGen {
 			}
 			private static final int INT_SIZE = 4;
 
-            /** Stevec anonimnih label. */
-            private int labelCounter = 0;
+            private int jumpLabelCounter = 0;
+            private String generateJumpLabel() {
+                return "J_L" + (jumpLabelCounter++);
+            }
 
-            /** Map from function definition to unique label name */
-            private final Map<AST.FunDef, String> funLabelMap = new HashMap<>();
+            private String generateStringLabel(AST.AtomExpr atomExpr) {
+                int nodeHash = Math.abs(System.identityHashCode(atomExpr));
+                return "STR_" + nodeHash;
+            }
 
-			// Generate unique labels
-			private String nextLabel() {
-				return "L" + (labelCounter++);
-			}
+            private String generateScopedLabel(String baseName, String type, AST.Node node, int scopeDepth) {
+                // Global scope (no parent frame)
+                if (scopeDepth == 0) {
+                    return baseName;
+                }
+
+                // Local scope (let) - create unique label
+                int nodeHash = Math.abs(System.identityHashCode(node));
+                return String.format("%s_%s_%d", type, baseName, nodeHash);
+            }
+
+            private String generateFunctionLabel(AST.FunDef funDef, int scopeDepth) {
+                return generateScopedLabel(funDef.name, "FUN", funDef, scopeDepth);
+            }
+
+            private String generateVariableLabel(AST.VarDef varDef, int scopeDepth) {
+                return generateScopedLabel(varDef.name, "VAR", varDef, scopeDepth);
+            }
+
+            private String generateVariableInitLabel(AST.VarDef varDef, int scopeDepth) {
+                return generateScopedLabel(varDef.name + "_INIT", "VAR", varDef, scopeDepth);
+            }
 
 			@Override
 			public List<PDM.CodeInstr> visit(AST.FunDef funDef, Mem.Frame frame) {
 				List<PDM.CodeInstr> codeInstr = new ArrayList<>();
 				Report.Locatable loc = attrAST.attrLoc.get(funDef);
 
-                // Generate unique name if nested (fun name, parent name, depth)
-                String funName = funDef.name;
-                if (frame != null) {
-                    funName += "_FUN_" + frame.name + "_D" + frame.depth;
-                }
-                funLabelMap.put(funDef, funName);
-
                 // Retriver Function Frame for current funDef
 				Mem.Frame funFrame = attrAST.attrFrame.get(funDef);
 
 				// 1. Function label (Call address)
+                int scopeDepth = frame != null ? frame.depth : 0;
+                String funName = generateFunctionLabel(funDef, scopeDepth);
 				PDM.LABEL funLabel = new PDM.LABEL(funName, loc);
 				codeInstr.add(funLabel);
 
@@ -220,14 +237,10 @@ public class CodeGen {
 				Mem.Access var = attrAST.attrVarAccess.get(varDef);
 
                 // Generate unique name if nested (var name, parent name, depth)
-                String varName = varDef.name;
-                String varInitName = varDef.name + "_INIT";
-                if (frame != null)
-                {
-                    // Local var
-                    varName += "_VAR_" + frame.name + "_D" + frame.depth;
-                    varInitName += "_" + frame.name + "_D" +frame.depth;
-                }
+                int scopeDepth = frame != null ? frame.depth : 0;
+                String varName = generateVariableLabel(varDef, scopeDepth);
+                String varInitName = generateVariableInitLabel(varDef, scopeDepth);
+
                 // Global variables
                 // Global variables - generate INIT code for initialization
                 if (var instanceof Mem.AbsAccess && var.inits != null) {
@@ -317,9 +330,9 @@ public class CodeGen {
 				List<PDM.CodeInstr> ifInstr = new ArrayList<>();
 				Report.Locatable ifLoc = attrAST.attrLoc.get(ifStmt);
 
-				String thenLabel = "J_" + nextLabel();
-				String elseLabel = "J_" + nextLabel();
-				String endLabel = "J_" + nextLabel();
+				String thenLabel = generateJumpLabel();
+				String elseLabel = generateJumpLabel();
+				String endLabel = generateJumpLabel();
 
 				// Generate condition code (value is now on stack)
 				List<PDM.CodeInstr> condCode = ifStmt.cond.accept(this, frame);
@@ -361,9 +374,9 @@ public class CodeGen {
 				List<PDM.CodeInstr> whileInstr = new ArrayList<>();
 				Report.Locatable whileLoc = attrAST.attrLoc.get(whileStmt);
 
-				String startLabel = "J_" + nextLabel();  // Beginning of loop (condition check)
-				String bodyLabel = "J_" + nextLabel();   // Start of loop body
-				String endLabel = "J_" + nextLabel();    // End of loop
+				String startLabel = generateJumpLabel();  // Beginning of loop (condition check)
+				String bodyLabel = generateJumpLabel();   // Start of loop body
+				String endLabel = generateJumpLabel();    // End of loop
 
 				// Start label - where we check the condition
 				whileInstr.add(new PDM.LABEL(startLabel, whileLoc));
@@ -398,6 +411,7 @@ public class CodeGen {
 			public List<PDM.CodeInstr> visit(AST.LetStmt letStmt, Mem.Frame frame) {
 				List<PDM.CodeInstr> codeInstr = new ArrayList<>();
 				Report.Locatable loc = attrAST.attrLoc.get(letStmt);
+                System.identityHashCode(letStmt);
 
                 // MainDefs code (funDef, varDef)
                 for (AST.MainDef def : letStmt.defs)
@@ -439,7 +453,7 @@ public class CodeGen {
 						Vector<Integer> chars = Memory.decodeStrConst(atomExpr, atomLoc);
 
                         // Generate simple null-terminated string for function calls like putstr
-                        String strLabel = "STR_" + labelCounter++;
+                        String strLabel = generateStringLabel(atomExpr);
                         atomInstr.add(new PDM.NAME(strLabel, atomLoc));
 
                         List<PDM.DataInstr> strData = new ArrayList<>();
@@ -494,7 +508,7 @@ public class CodeGen {
 						List<PDM.CodeInstr> exprCode = unExpr.expr.accept(this, frame);
                         codeInstr.addAll(exprCode);
 
-						
+
 						// Apply unary operator
 						switch (unExpr.oper) {
 							case NOT -> codeInstr.add(new PDM.OPER(PDM.OPER.Oper.NOT, loc));
@@ -548,18 +562,35 @@ public class CodeGen {
 				List<PDM.CodeInstr> codeInstr = new ArrayList<>();
 				Report.Locatable loc = attrAST.attrLoc.get(varExpr);
 
+
                 // Generate address calculation
                 codeInstr.addAll(generateAddress(varExpr, frame));
 
-                if (attrAST.attrLVal.get(varExpr) != Boolean.TRUE)
-                {
-                    // Varaible is not left value
-                    // LOAD vlaue from address
+                // If variable is left value - get only address
+                if (attrAST.attrLVal.get(varExpr) != Boolean.TRUE) {
+                    // Is left value - LOAD
                     codeInstr.add(new PDM.LOAD(loc));
                 }
 
                 return codeInstr;
 			}
+
+            // Special handling of string variables - return address insted of value
+            private boolean isStringVariable(AST.VarExpr varExpr) {
+                // Get the definition of this variable
+                AST.Def definition = attrAST.attrDef.get(varExpr);
+
+                if (definition instanceof AST.VarDef varDef) {
+                    // Check if any of the initializers are string constants
+                    for (AST.Init init : varDef.inits) {
+                        if (init.value.type == AST.AtomExpr.Type.STRCONST) {
+                            return true;
+                        }
+                    }
+                }
+
+                return false;
+            }
 
 			@Override
 			public List<PDM.CodeInstr> visit(AST.CallExpr callExpr, Mem.Frame frame) {
@@ -573,29 +604,32 @@ public class CodeGen {
                     codeInstr.addAll(argCode);
                 }
 
-                // Frame of calling function
-                AST.FunDef funDef = (AST.FunDef)attrAST.attrDef.get(callExpr);
-                Mem.Frame funFrame = attrAST.attrFrame.get(funDef);
+                // Get the called function's definition and frame
+                AST.FunDef calledFunDef = (AST.FunDef)attrAST.attrDef.get(callExpr);
+                Mem.Frame calledFunFrame = attrAST.attrFrame.get(calledFunDef);
 
                 // 2. Set Static Link
-                // Current FP
+                // Set current frame pointer
                 codeInstr.add(new PDM.REGN(PDM.REGN.Reg.FP, loc));
 
-                // Load until depth is smaller than called depth
-                // Correct depth = funFrame.depth - depth (parent) = 1
-                int i = frame.depth;
-                while (i >= funFrame.depth) {
-                    codeInstr.add(new PDM.LOAD(loc));
-                    i--;
+                // Follow static links up to the lexical parent of the called function
+                int currentDepth = frame.depth;             // Caller`s lexical depth
+                int targetDepth = calledFunFrame.depth;     // Called function`s lexical depth
+
+                // Correct depth -> calledFun.depth - 1 (parent)
+                while (targetDepth <= currentDepth) {
+                    codeInstr.add(new PDM.LOAD(loc));  // Follow one static link up
+                    currentDepth--;
                 }
 
+                // Generate function name
+                // Depth of parent frame
+                String funName = generateFunctionLabel(calledFunDef, calledFunFrame.depth - 1);
                 // 3. Push function address and call
-                String funName = funLabelMap.get(funDef);
-
                 codeInstr.add(new PDM.NAME(funName, loc));
-                codeInstr.add(new PDM.CALL(funFrame, loc));
+                codeInstr.add(new PDM.CALL(calledFunFrame, loc));
 
-				return codeInstr;
+                return codeInstr;
 			}
 
             private List<PDM.CodeInstr> generateAddress(AST.VarExpr varExpr, Mem.Frame frame) {
@@ -712,7 +746,7 @@ public class CodeGen {
 
 		/**
 		 * Izracuna seznam ukazov, ki predstavljajo kodo programa.
-		 * 
+		 *
 		 * @return Seznam ukazov, ki predstavljajo kodo programa.
 		 */
 		public List<PDM.CodeInstr> codeSegment() {
@@ -799,7 +833,7 @@ public class CodeGen {
 
 		/**
 		 * Izracuna seznam ukazov, ki predstavljajo podatke programa.
-		 * 
+		 *
 		 * @return Seznam ukazov, ki predstavljajo podatke programa.
 		 */
 		public List<PDM.DataInstr> dataSegment() {
@@ -841,7 +875,7 @@ public class CodeGen {
 
 	/**
 	 * Zagon izracuna pomnilniske predstavitve kot samostojnega programa.
-	 * 
+	 *
 	 * @param cmdLineArgs Argumenti v ukazni vrstici.
 	 */
 	public static void main(final String[] cmdLineArgs) {

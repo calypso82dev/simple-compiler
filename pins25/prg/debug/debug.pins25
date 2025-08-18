@@ -2,11 +2,23 @@ fun exit(exitcode)
 fun putint(intvalue)
 fun putstr(straddr)
 
-fun add(a, b) = a + b
+var i = 2
 
+fun foo(x) =
+    let
+        var i = 12
+        fun foo2() = i = 25, 0
+        //fun foo2() = i + 5
+    in
+        //x = foo2()
+        foo2(),
+        x = i
+    end,
+    x
 
 fun main() =
-    putstr("19 + 2 = \00"),
-    putint(add(19, 2)),
-    putstr("\n\00"),
+    putint(foo(5)),
     exit(0)
+
+
+
