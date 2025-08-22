@@ -1,0 +1,10 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="SynAn-debug" type="Application" factoryName="Application">
+    <option name="MAIN_CLASS_NAME" value="pins25.phase.SynAn" />
+    <module name="pins25" />
+    <option name="PROGRAM_PARAMETERS" value="prg/debug/debug.pins25" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>
