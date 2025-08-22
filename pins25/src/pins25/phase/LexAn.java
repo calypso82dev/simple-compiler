@@ -1,571 +1,515 @@
 package pins25.phase;
 
 import java.io.*;
+import java.util.*;
 import pins25.common.*;
 
 /**
- * Leksikalni analizator.
+ * Leksikalni analizator z izboljšano strukturo.
  */
 public class LexAn implements AutoCloseable {
 
-	/** Izvorna datoteka. */
-	private final Reader srcFile;
+    /**
+     * Izvorna datoteka.
+     */
+    private final Reader srcFile;
 
-	/**
-	 * Ustvari nov leksikalni analizator.
-	 * 
-	 * @param srcFileName Ime izvorne datoteke.
-	 */
-	public LexAn(final String srcFileName) {
-		try {
-			srcFile = new BufferedReader(new InputStreamReader(new FileInputStream(new File(srcFileName))));
-			nextChar(); // Pripravi prvi znak izvorne datoteke (glej {@link nextChar}).
-		} catch (FileNotFoundException __) {
-			throw new Report.Error("Source file '" + srcFileName + "' not found.");
-		}
-	}
-
-	@Override
-	public void close() {
-		try {
-			srcFile.close();
-		} catch (IOException __) {
-			throw new Report.Error("Cannot close source file.");
-		}
-	}
-
-	/** Trenutni znak izvorne datoteke (glej {@link nextChar}). */
-	private int buffChar = -2;
-
-	/** Vrstica trenutnega znaka izvorne datoteke (glej {@link nextChar}). */
-	private int buffCharLine = 0;
-
-	/** Stolpec trenutnega znaka izvorne datoteke (glej {@link nextChar}). */
-	private int buffCharColumn = 0;
-
-	/**
-	 * Prebere naslednji znak izvorne datoteke.
-	 * 
-	 * Izvorno datoteko beremo znak po znak. Trenutni znak izvorne datoteke je
-	 * shranjen v spremenljivki {@link buffChar}, vrstica in stolpec trenutnega
-	 * znaka izvorne datoteke sta shranjena v spremenljivkah {@link buffCharLine} in
-	 * {@link buffCharColumn}.
-	 * 
-	 * Zacetne vrednosti {@link buffChar}, {@link buffCharLine} in
-	 * {@link buffCharColumn} so {@code '\n'}, {@code 0} in {@code 0}: branje prvega
-	 * znaka izvorne datoteke bo na osnovi vrednosti {@code '\n'} spremenljivke
-	 * {@link buffChar} prvemu znaku izvorne datoteke priredilo vrstico 1 in stolpec
-	 * 1.
-	 * 
-	 * Pri branju izvorne datoteke se predpostavlja, da je v spremenljivki
-	 * {@link buffChar} ves "cas veljaven znak. Zunaj metode {@link nextChar} so vse
-	 * spremenljivke {@link buffChar}, {@link buffCharLine} in
-	 * {@link buffCharColumn} namenjene le branju.
-	 * 
-	 * Vrednost {@code -1} v spremenljivki {@link buffChar} pomeni konec datoteke
-	 * (vrednosti spremenljivk {@link buffCharLine} in {@link buffCharColumn} pa
-	 * nista ve"c veljavni).
-	 */
-
-	private void nextChar() {
-		try {
-			switch (buffChar) {
-			case -2: // Noben znak "se ni bil prebran.
-				buffChar = srcFile.read();
-				buffCharLine = buffChar == -1 ? 0 : 1; // buffChar == -1 -> EOF
-				buffCharColumn = buffChar == -1 ? 0 : 1;
-				return;
-			case -1: // Konec datoteke je bil ze viden.
-				return;
-			case '\n': // Prejsnji znak je koncal vrstico, zacne se nova vrstica.
-				buffChar = srcFile.read();
-				buffCharLine = buffChar == -1 ? buffCharLine : buffCharLine + 1;
-				buffCharColumn = buffChar == -1 ? buffCharColumn : 1;
-				return;
-			case '\t': // Prejsnji znak je tabulator, ta znak je morda potisnjen v desno.
-				buffChar = srcFile.read();
-				while (buffCharColumn % 4 != 0)
-					buffCharColumn += 1;
-				buffCharColumn += 1;
-				return;
-			default: // Prejsnji znak je brez posebnosti.
-				buffChar = srcFile.read();
-				buffCharColumn += 1;
-				return;
-			}
-		} catch (IOException __) {
-			throw new Report.Error("Cannot read source file.");
-		}
-	}
-
-	/**
-	 * Trenutni leksikalni simbol.
-	 * 
-	 * "Ce vrednost spremenljivke {@code buffToken} ni {@code null}, je simbol "ze
-	 * prebran iz vhodne datoteke, ni pa "se predan naprej sintaksnemu analizatorju.
-	 * Ta simbol je dostopen z metodama {@link peekToken} in {@link takeToken}.
-	 */
-	private Token buffToken = null;
-
-	// buffer trenutnega niza znakov -> Token
-	// if null, v bufferju ni znakov (new token)
-	//private String textBuffer = null;
-
-	/**
-	 * Prebere naslednji leksikalni simbol, ki je nato dostopen preko metod
-	 * {@link peekToken} in {@link takeToken}.
-	 */
-	private void nextToken() {
-		//System.out.println("Char: " + buffChar);
-		StringBuilder sb = new StringBuilder();
-
-		Token.Symbol symbol = null;
-		Report.Location location;
-
-		int startLine = buffCharLine;
-		int startCol = buffCharColumn;
-		int startChar = buffChar;
-		sb.append((char) startChar);
-
-		boolean isComment = false;
-
-		// Constants
-		// starts with num [+-]1-9 -> int 
-		// starts wtih ` -> character
-		// starts with " -> string
-
-		// INTCONST
-		if (isDigit(startChar)) {
-			nextChar();
-			
-			while (isDigit(buffChar)) {
-				sb.append((char) buffChar);
-				nextChar();
-			}
-
-			// Check leading zero
-			if (sb.length() > 1 && sb.charAt(0) == '0') {
-				throw new Report.Error(
-					new Report.Location(startLine, startCol),
-					"Illegal prefix 0"
-				);
-			}
-
-			symbol = Token.Symbol.INTCONST;
-		}
-
-		// CHARCONST ''
-		if (startChar == 39) { 
-			nextChar();
-			sb.append((char) buffChar);
-
-			if (buffChar == 92) {
-				// Special char \
-				nextChar();
-				sb.append((char) buffChar);
-
-				if (buffChar == 92 || buffChar == 39 || buffChar == 'n') {
-					// \\ \' \n
-				} else if (validHexChar(buffChar)) {
-					// Hex character
-					nextChar();
-					sb.append((char) buffChar);
-
-					if (!validHexChar(buffChar)) {
-						throw new Report.Error(
-							new Report.Location(startLine, startCol, buffCharLine, buffCharColumn),
-							"Hex character unvalid: " + sb.toString()
-						);
-					}
-				} else {
-					throw new Report.Error(
-						new Report.Location(startLine, startCol, buffCharLine, buffCharColumn),
-						"Special character unvalid: " + sb.toString()
-					);
-				}
-			} else if (buffChar >= 32 && buffChar <= 126) {
-				// Normal character from {32...126}
-			} else {
-				throw new Report.Error(
-					new Report.Location(startLine, startCol, buffCharLine, buffCharColumn),
-					"Character unvalid: " + sb.toString()
-				);
-			}
-			nextChar();
-			sb.append((char) buffChar);
-
-			// Closing '
-			if (buffChar != 39) {
-				throw new Report.Error(
-					new Report.Location(startLine, startCol, buffCharLine, buffCharColumn),
-					"Unfinished character: " + sb.toString()
-				);
-			}
-
-			// Ready next char for new token
-			nextChar();
-
-			symbol = Token.Symbol.CHARCONST;
-		}
-
-		// STRINGCONST ""
-		if (startChar == 34) { 
-			nextChar();
-			
-			// 1. Normal characters (ASCII 32-126) - [\x20-\x7E]
-			// 2. Escape sequences: \", \\, \n
-			// 3. Hex escape sequences: \xx where x is 0-9, a-f (lowercase only) - \\[0-9a-f]
-
-			while (buffChar != 34 && !isEndOfLine(buffChar) && buffChar != -1) {
-				// Read characters 1 by 1 unil end of string or end of file (error)
-				sb.append((char) buffChar);
-
-				if (buffChar == 92) {
-					// Special char \
-					nextChar();
-					sb.append((char) buffChar);
-
-					if (buffChar == 92 || buffChar == 34 || buffChar == 'n') {
-						// \\ \' \n
-					} else if (validHexChar(buffChar)) {
-						// Hex character
-						nextChar();
-						sb.append((char) buffChar);
-						
-						if (!validHexChar(buffChar)) {
-							throw new Report.Error(
-								new Report.Location(startLine, startCol, buffCharLine, buffCharColumn),
-								"Hex character unvalid: " + sb.toString()
-							);
-						}
-					} else {
-						throw new Report.Error(
-							new Report.Location(startLine, startCol, buffCharLine, buffCharColumn),
-							"Special character unvalid: " + sb.toString()
-						);
-					}
-				} else if (buffChar >= 32 && buffChar <= 126) {
-					// Normal character from {32...126}
-				} else {
-					throw new Report.Error(
-						new Report.Location(startLine, startCol, buffCharLine, buffCharColumn),
-						"String unvalid: " + sb.toString()
-					);
-				}
-
-				nextChar();
-			}
-
-			// Closing "
-			if (buffChar != 34) {
-				throw new Report.Error(
-					new Report.Location(startLine, startCol, buffCharLine, buffCharColumn),
-					"Unfinished string: " + sb.toString()
-				);
-			}
-			
-			sb.append((char) buffChar);
-
-			// Ready next char for new token
-			nextChar();
-
-			symbol = Token.Symbol.STRINGCONST;
-		}
-
-		// Symbols
-		switch (startChar) {
-			case '=':
-				// Could be ASSIGN or EQU
-				nextChar();
-				if (buffChar == '=') {
-					sb.append((char) buffChar);
-					symbol = Token.Symbol.EQU;
-					nextChar();
-				} else {
-					symbol = Token.Symbol.ASSIGN;
-				}
-				break;
-				
-			case ',':
-				symbol = Token.Symbol.COMMA;
-				nextChar();
-				break;
-				
-			case '&':
-				// Looking for AND (&&)
-				nextChar();
-				if (buffChar == '&') {
-					sb.append((char) buffChar);
-					symbol = Token.Symbol.AND;
-					nextChar();
-				} else {
-					throw new Report.Error(
-						new Report.Location(startLine, startCol),
-						"Operator unvalid: " + (char) startChar
-					);
-				}
-				break;
-				
-			case '|':
-				// Looking for OR (||)
-				nextChar();
-				if (buffChar == '|') {
-					sb.append((char) buffChar);
-					symbol = Token.Symbol.OR;
-					nextChar();
-				} else {
-					throw new Report.Error(
-						new Report.Location(startLine, startCol),
-						"Operator unvalid: " + (char) startChar
-					);
-				}
-				break;
-				
-			case '!':
-				// Could be NOT or NEQ (!=)
-				nextChar();
-				if (buffChar == '=') {
-					sb.append((char) buffChar);
-					symbol = Token.Symbol.NEQ;
-					nextChar();
-				} else {
-					symbol = Token.Symbol.NOT;
-				}
-				break;
-				
-			case '>':
-				// Could be GTH or GEQ (>=)
-				nextChar();
-				if (buffChar == '=') {
-					sb.append((char) buffChar);
-					symbol = Token.Symbol.GEQ;
-					nextChar();
-				} else {
-					symbol = Token.Symbol.GTH;
-				}
-				break;
-				
-			case '<':
-				// Could be LTH or LEQ (<=)
-				nextChar();
-				if (buffChar == '=') {
-					sb.append((char) buffChar);
-					symbol = Token.Symbol.LEQ;
-					nextChar();
-				} else {
-					symbol = Token.Symbol.LTH;
-				}
-				break;
-				
-			case '+':
-				symbol = Token.Symbol.ADD;
-				nextChar();
-				break;
-				
-			case '-':
-				symbol = Token.Symbol.SUB;
-				nextChar();
-				break;
-				
-			case '*':
-				symbol = Token.Symbol.MUL;
-				nextChar();
-				break;
-				
-			case '/':
-				// Could be comment
-				nextChar();
-				if (buffChar == '/') {
-					isComment = true;
-					//System.out.println("Comment");
-				} else {
-					symbol = Token.Symbol.DIV;
-				}
-				break;
-				
-			case '%':
-				symbol = Token.Symbol.MOD;
-				nextChar();
-				break;
-				
-			case '^':
-				symbol = Token.Symbol.PTR;
-				nextChar();
-				break;
-				
-			case '(':
-				symbol = Token.Symbol.LPAREN;
-				nextChar();
-				break;
-				
-			case ')':
-				symbol = Token.Symbol.RPAREN;
-				nextChar();
-				break;
-		}
-		
-
-		// Comment
-		if (isComment) {
-			// Read until new line
-			nextChar();
-			while (!isEndOfLine(buffChar)) {
-				nextChar();
-			}
-			nextChar();
-			nextToken();
-			return;
-		}
-
-		// Identifiers
-		// Starts with A-Za-z_, continue with A-Za-z0-9_
-		// Check if name if key word
-
-		if (validIdChar(startChar) && !isDigit(startChar)) {
-			nextChar();
-
-			while (validIdChar(buffChar)) {
-				// Read characters 1 by 1 unil end of identifier valid chars
-				sb.append((char) buffChar);
-				nextChar();
-			}
-
-			// Check if identifier is key word
-			String keyword = sb.toString();
-			symbol = switch (keyword) {
-				case "fun" -> Token.Symbol.FUN;
-				case "var" -> Token.Symbol.VAR;
-				case "if" -> Token.Symbol.IF;
-				case "then" -> Token.Symbol.THEN;
-				case "else" -> Token.Symbol.ELSE;
-				case "while" -> Token.Symbol.WHILE;
-				case "do" -> Token.Symbol.DO;
-				case "let" -> Token.Symbol.LET;
-				case "in" -> Token.Symbol.IN;
-				case "end" -> Token.Symbol.END;
-				default -> Token.Symbol.IDENTIFIER;
-			};
-		}
-
-		// Whitespaces
-		if (startChar == ' ' || startChar == '\t' || startChar == '\n' || startChar == '\r') {
-            // Skip space, tab, new line, carrige return
+    public LexAn(final String srcFileName) {
+        try {
+            srcFile = new BufferedReader(new InputStreamReader(new FileInputStream(new File(srcFileName))));
             nextChar();
-			nextToken();
-			return;
+        } catch (FileNotFoundException __) {
+            throw new Report.Error("Source file '" + srcFileName + "' not found.");
+        }
+    }
+
+    @Override
+    public void close() {
+        try {
+            srcFile.close();
+        } catch (IOException __) {
+            throw new Report.Error("Cannot close source file.");
+        }
+    }
+
+    /**
+     * Trenutni znak izvorne datoteke.
+     */
+    private int buffChar = -2;
+    /**
+     * Vrstica trenutnega znaka.
+     */
+    private int buffCharLine = 0;
+    /**
+     * Stolpec trenutnega znaka.
+     */
+    private int buffCharColumn = 0;
+
+    /**
+     * Trenutni leksikalni simbol.
+     * "Ce vrednost spremenljivke {@code buffToken} ni {@code null}, je simbol "ze
+     * prebran iz vhodne datoteke, ni pa "se predan naprej sintaksnemu analizatorju.
+     * Ta simbol je dostopen z metodama {@link peekToken} in {@link takeToken}.
+     */
+    private Token buffToken = null;
+
+    // Konstante za posebne znake
+    private static final int EOF = -1;
+    private static final int NOT_READ = -2;
+    private static final char SINGLE_QUOTE = '\'';
+    private static final char DOUBLE_QUOTE = '"';
+    private static final char BACKSLASH = '\\';
+    private static final char NEWLINE = '\n';
+    private static final char CARRIAGE_RETURN = '\r';
+    private static final char TAB = '\t';
+    private static final char SPACE = ' ';
+
+    // Mapa ključnih besed
+    private static final Map<String, Token.Symbol> KEYWORDS = Map.ofEntries(
+            Map.entry("fun", Token.Symbol.FUN),
+            Map.entry("var", Token.Symbol.VAR),
+            Map.entry("if", Token.Symbol.IF),
+            Map.entry("then", Token.Symbol.THEN),
+            Map.entry("else", Token.Symbol.ELSE),
+            Map.entry("while", Token.Symbol.WHILE),
+            Map.entry("do", Token.Symbol.DO),
+            Map.entry("let", Token.Symbol.LET),
+            Map.entry("in", Token.Symbol.IN),
+            Map.entry("end", Token.Symbol.END)
+    );
+
+    // buffer trenutnega niza znakov -> Token
+    // if null, v bufferju ni znakov (new token)
+    //private String textBuffer = null;
+
+    /**
+     * Prebere naslednji leksikalni simbol, ki je nato dostopen preko metod
+     * {@link peekToken} in {@link takeToken}.
+     */
+    private void nextChar() {
+        try {
+            switch (buffChar) {
+                case NOT_READ: // Nothing has been read yet
+                    buffChar = srcFile.read();
+                    // Start -> First line (1, 1)
+                    // EOF -> Last char (0, 0)
+                    buffCharLine = buffChar == EOF ? 0 : 1;
+                    buffCharColumn = buffChar == EOF ? 0 : 1;
+                    return;
+                case EOF: // End of file  (-1)
+                    return;
+                case NEWLINE: // Previous character was new line
+                    buffChar = srcFile.read();
+                    // Line += 1
+                    buffCharLine = buffChar == EOF ? buffCharLine : buffCharLine + 1;
+                    // Column = 1 (first chracter)
+                    buffCharColumn = buffChar == EOF ? buffCharColumn : 1;
+                    return;
+                case TAB: // Previous character was tab
+                    buffChar = srcFile.read();
+                    // Alight by 4
+                    while (buffCharColumn % 4 != 0)
+                        buffCharColumn += 1;
+                    buffCharColumn += 1;
+                    return;
+                default:
+                    buffChar = srcFile.read();
+                    // Reading char in line
+                    buffCharColumn += 1;
+            }
+        } catch (IOException __) {
+            throw new Report.Error("Cannot read source file.");
+        }
+    }
+
+    private void nextToken() {
+        // Whitesapce skip
+        skipWhitespace();
+
+        // End of file
+        if (buffChar == EOF) {
+            buffToken = new Token(new Report.Location(0, 0), Token.Symbol.EOF, "");
+            return;
         }
 
-		String lexeme = sb.toString();
-		location = new Report.Location(startLine, startCol, startLine, startCol + lexeme.length() - 1);
+        int startLine = buffCharLine;
+        int startCol = buffCharColumn;
+        StringBuilder lexeme = new StringBuilder();
 
-		// System.out.println("String: " + lexeme);
-		// System.out.println("Length: " + (lexeme.length() - 1));
+        // Constants
+        // starts with num [+-]1-9 -> int
+        // starts wtih ` -> character
+        // starts with " -> string
 
-		// EOF
-		if (startChar == -1) {
-			location = new Report.Location(0, 0);
-			symbol = Token.Symbol.EOF;
-		}
+        // Preverimo različne vrste tokenov
+        if (isDigit(buffChar)) {
+            // 1. INT CONST
+            buffToken = readNumber(startLine, startCol, lexeme);
+        } else if (buffChar == SINGLE_QUOTE) {
+            // 2. CHRACTER CONST
+            buffToken = readCharConstant(startLine, startCol, lexeme);
+        } else if (buffChar == DOUBLE_QUOTE) {
+            // 3. STRING CONST
+            buffToken = readStringConstant(startLine, startCol, lexeme);
+        } else if (isCommentStart(buffChar)) {
+            // Comment
+            int next = peekNextChar();
+            if (next == '/')
+                skipSingleLineComment();
+//            else if (next == '*')
+//                skipMultiLineComment();
+            // Process next token
+            nextToken();
+        } else if (isIdentifierStart(buffChar)) {
+            // Name Identifier OR Keyword
+            buffToken = readIdentifier(startLine, startCol, lexeme);
+        } else {
+            // Operators
+            buffToken = readOperator(startLine, startCol, lexeme);
+        }
+    }
 
-		// System.out.println(symbol);
-		// System.out.println(location);
-		
-		if (symbol != null) {
-			// Create token 
-			buffToken = new Token(location, symbol, lexeme);
-		} else {
-			throw new Report.Error(
-				new Report.Location(startLine, startCol),
-				"Undefined character: " + (char) startChar
-			);
-		}
-	}
+    private Token readNumber(int startLine, int startCol, StringBuilder lexeme) {
+        // Read all digits
+        while (isDigit(buffChar)) {
+            lexeme.append((char) buffChar);
+            nextChar();
+        }
 
-	private boolean isEndOfLine(int character) {
-		if (character == '\n') {
-			return true;
-		}	
-		// handling CR+LF sequence (Windows style)
-		if (character == '\r') {
-			nextChar(); // Consume the \n after \r
-			return true;
-		}
-		return false;
-	}
+        String number = lexeme.toString();
 
-	private boolean validIdChar(int character) {
-		return isDigit(character) || isLetter(character) || character == '_';
-	}
+        // Check for leading zero (numbers like 01, 02 are illegal)
+        if (number.length() > 1 && number.charAt(0) == '0') {
+            throw new Report.Error(
+                    new Report.Location(startLine, startCol),
+                    "Illegal leading zero in number: " + number
+            );
+        }
 
-	private boolean validHexChar(int character) {
-		return isDigit(character) || (character >= 'a' && character <= 'f');
-	}
+        return createToken(startLine, startCol, lexeme, Token.Symbol.INTCONST);
+    }
 
-	private boolean isLetter(int character) {
-		return (character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z');
-	}
+    private Token readCharConstant(int startLine, int startCol, StringBuilder lexeme) {
+        // Start or character - single quote
+        lexeme.append((char) buffChar); // '
+        nextChar();
 
-	private boolean isDigit(int character) {
-		return character >= '0' && character <= '9';
-	}
+        // Process body of chracter
+        readCharacterContent(lexeme, startLine, startCol, false);
 
-	/**
-	 * Vrne trenutni leksikalni simbol, ki ostane v lastnistvu leksikalnega
-	 * analizatorja.
-	 * 
-	 * @return Leksikalni simbol.
-	 */
-	public Token peekToken() {
-		if (buffToken == null)
-			nextToken();
-		return buffToken;
-	}
+        // Closing of character - single quote
+        if (buffChar != SINGLE_QUOTE) {
+            throw new Report.Error(new Report.Location(startLine, startCol),
+                    "Unterminated string constant"
+            );
+        }
 
-	/**
-	 * Vrne trenutni leksikalni simbol, ki preide v lastnistvo klicoce kode.
-	 * 
-	 * @return Leksikalni simbol.
-	 */
-	public Token takeToken() {
-		if (buffToken == null)
-			nextToken();
-		final Token thisToken = buffToken;
-		buffToken = null;
-		return thisToken;
-	}
+        lexeme.append((char) buffChar);
+        nextChar();
 
-	// --- ZAGON ---
+        return createToken(startLine, startCol, lexeme, Token.Symbol.CHARCONST);
+    }
 
-	/**
-	 * Zagon leksikalnega analizatorja kot samostojnega programa.
-	 * 
-	 * @param cmdLineArgs Argumenti v ukazni vrstici.
-	 */
-	public static void main(final String[] cmdLineArgs) {
-		System.out.println("This is PINS'25 compiler (lexical analysis):");
+    private Token readStringConstant(int startLine, int startCol, StringBuilder lexeme) {
+        // Start of string - double quote
+        lexeme.append((char) buffChar); // "
+        nextChar();
 
-		try {
-			if (cmdLineArgs.length == 0)
-				throw new Report.Error("No source file specified in the command line.");
-			if (cmdLineArgs.length > 1)
-				Report.warning("Unused arguments in the command line.");
+        // Process body of string
+        while (buffChar != DOUBLE_QUOTE && buffChar != EOF && !isEndOfLine(buffChar)) {
+            readCharacterContent(lexeme, startLine, startCol, true);
+        }
 
-			try (LexAn lexAn = new LexAn(cmdLineArgs[0])) {
-				while (lexAn.peekToken().symbol() != Token.Symbol.EOF)
-					System.out.println(lexAn.takeToken());
-				System.out.println(lexAn.takeToken()); // EOF token
-			}
+        if (buffChar != DOUBLE_QUOTE) {
+            throw new Report.Error(new Report.Location(startLine, startCol),
+                    "Unterminated string constant"
+            );
+        }
 
-			// Upajmo, da kdaj pridemo to te tocke.
-			// A zavedajmo se sledecega:
-			// 1. Prevod je zaradi napak v programu lahko napacen :-o
-			// 2. Izvorni program se zdalec ni tisto, kar je programer hotel, da bi bil ;-)
-			Report.info("Done.");
-		} catch (Report.Error error) {
-			// Izpis opisa napake.
-			System.err.println(error.getMessage());
-			System.exit(1);
-		}
-	}
+        lexeme.append((char) buffChar);
+        nextChar();
 
+        return createToken(startLine, startCol, lexeme, Token.Symbol.STRINGCONST);
+    }
+    private void readCharacterContent(StringBuilder lexeme, int startLine, int startCol, boolean isString) {
+        // 1. Normal characters (ASCII 32-126) - [\x20-\x7E]
+        // 2. Escape sequences: \\, \n, \" (string), \' (char)
+        // 3. Hex escape sequences: \xx where x is 0-9, a-f (lowercase only) - \\[0-9a-f]
+
+        String context = isString ? "string" : "character";
+        // Char is backslash - special chracter
+        if (buffChar == BACKSLASH) {
+            lexeme.append((char) buffChar);
+            nextChar();
+
+            if (buffChar == BACKSLASH || buffChar == 'n') {
+                // Valid in both (string and char): \\, \n
+                lexeme.append((char) buffChar);
+                nextChar();
+            } else if (buffChar == SINGLE_QUOTE && !isString) {
+                // \' is only valid in character constants
+                lexeme.append((char) buffChar);
+                nextChar();
+            } else if (buffChar == DOUBLE_QUOTE && isString) {
+                // \" is only valid in string constants
+                lexeme.append((char) buffChar);
+                nextChar();
+            } else if (isHexDigit(buffChar)) {
+                // Hex escape: \xx (valid in both)
+
+                // 1. Hex digit
+                lexeme.append((char) buffChar);
+                nextChar();
+                if (!isHexDigit(buffChar)) {
+                    // Invalid Hex character
+                    throw new Report.Error(new Report.Location(startLine, startCol),
+                            "Invalid hex escape sequence - expected two hex digits"
+                    );
+                }
+                // 2. Hex digit
+                lexeme.append((char) buffChar);
+                nextChar();
+            } else {
+                // Invalid Specail (esacpe sequence) character
+                throw new Report.Error(new Report.Location(startLine, startCol),
+                        "Invalid escape sequence in " + context + " constant: \\" + (char)buffChar
+                );
+            }
+        } else if (buffChar >= 32 && buffChar <= 126) {
+            // Regular ASCII characters
+            lexeme.append((char) buffChar);
+            nextChar();
+        } else {
+            // Invalid ASCII chracter
+            throw new Report.Error(new Report.Location(startLine, startCol),
+                    "Invalid character in " + context + " constant"
+            );
+        }
+    }
+
+    private Token readIdentifier(int startLine, int startCol, StringBuilder lexeme) {
+        while (isIdentifierPart(buffChar)) {
+            lexeme.append((char) buffChar);
+            nextChar();
+        }
+
+        String identifier = lexeme.toString();
+
+        // Check if identifier is keyword or name
+        Token.Symbol symbol = KEYWORDS.getOrDefault(identifier, Token.Symbol.IDENTIFIER);
+
+        return createToken(startLine, startCol, lexeme, symbol);
+    }
+
+    private Token readOperator(int startLine, int startCol, StringBuilder lexeme) {
+        char firstChar = (char) buffChar;
+        lexeme.append(firstChar);
+        // Second char (current)
+        nextChar();
+
+        Token.Symbol symbol = switch (firstChar) {
+            // 1. Single/Double operators
+            case '=' -> {
+                // Could be ASSIGN or EQU
+                if (buffChar == '=') {
+                    lexeme.append((char) buffChar);
+                    nextChar();
+                    yield Token.Symbol.EQU;
+                }
+                yield Token.Symbol.ASSIGN;
+            }
+            case '!' -> {
+                // Could be NOT or NEQ (!=)
+                if (buffChar == '=') {
+                    lexeme.append((char) buffChar);
+                    nextChar();
+                    yield Token.Symbol.NEQ;
+                }
+                yield Token.Symbol.NOT;
+            }
+            case '>' -> {
+                // Could be GTH or GEQ (>=)
+                if (buffChar == '=') {
+                    lexeme.append((char) buffChar);
+                    nextChar();
+                    yield Token.Symbol.GEQ;
+                }
+                yield Token.Symbol.GTH;
+            }
+            case '<' -> {
+                // Could be LTH or LEQ (<=)
+                if (buffChar == '=') {
+                    lexeme.append((char) buffChar);
+                    nextChar();
+                    yield Token.Symbol.LEQ;
+                }
+                yield Token.Symbol.LTH;
+            }
+            // 2. Double operators
+            case '&' -> {
+                // Looking for AND (&&)
+                if (buffChar == '&') {
+                    lexeme.append((char) buffChar);
+                    nextChar();
+                    yield Token.Symbol.AND;
+                }
+                throw new Report.Error(new Report.Location(startLine, startCol),
+                        "Expected && for logical AND"
+                );
+            }
+            case '|' -> {
+                // Looking for OR (||)
+                if (buffChar == '|') {
+                    lexeme.append((char) buffChar);
+                    nextChar();
+                    yield Token.Symbol.OR;
+                }
+                throw new Report.Error(new Report.Location(startLine, startCol),
+                        "Expected || for logical OR"
+                );
+            }
+            // 3. Single operators
+            case ',' -> Token.Symbol.COMMA;
+            case '+' -> Token.Symbol.ADD;
+            case '-' -> Token.Symbol.SUB;
+            case '*' -> Token.Symbol.MUL;
+            case '/' -> Token.Symbol.DIV;
+            case '%' -> Token.Symbol.MOD;
+            case '^' -> Token.Symbol.PTR;
+            case '(' -> Token.Symbol.LPAREN;
+            case ')' -> Token.Symbol.RPAREN;
+            default -> throw new Report.Error("Unknown character: " + firstChar);
+        };
+
+        return createToken(startLine, startCol, lexeme, symbol);
+    }
+
+    private void skipWhitespace() {
+        while (buffChar == SPACE || buffChar == TAB || buffChar == NEWLINE || buffChar == CARRIAGE_RETURN) {
+            nextChar();
+        }
+    }
+
+    private void skipSingleLineComment() {
+        // Skip //
+        nextChar(); // 1. /
+        nextChar(); // 2. /
+
+        while (buffChar != EOF && !isEndOfLine(buffChar)) {
+            nextChar();
+        }
+
+        if (isEndOfLine(buffChar)) {
+            nextChar(); // Skip newline
+        }
+    }
+
+    private int peekNextChar() {
+        try {
+            srcFile.mark(1);  // Mark current position in file
+            int next = srcFile.read();      // Read next char (advances file)
+            srcFile.reset();                // Reset file back to marked position
+            return next;
+        } catch (IOException __) {
+            return EOF;
+        }
+    }
+
+    private Token createToken(int startLine, int startCol, StringBuilder lexeme, Token.Symbol symbol) {
+        String lexemeStr = lexeme.toString();
+        Report.Location location = new Report.Location(
+                startLine, startCol,
+                startLine, startCol + lexemeStr.length() - 1
+        );
+        return new Token(location, symbol, lexemeStr);
+    }
+
+    // Helper metode
+    private boolean isEndOfLine(int character) {
+        return character == NEWLINE || character == CARRIAGE_RETURN;
+    }
+
+    private boolean isCommentStart(int character) {
+        int next = peekNextChar();
+        return character == '/' && (next == '/' || next == '*');
+    }
+
+    private boolean isIdentifierStart(int character) {
+        return isLetter(character) || character == '_';
+    }
+
+    private boolean isIdentifierPart(int character) {
+        return isLetter(character) || isDigit(character) || character == '_';
+    }
+
+    private boolean isHexDigit(int character) {
+        return isDigit(character) || (character >= 'a' && character <= 'f') || (character >= 'A' && character <= 'F');
+    }
+
+    private boolean isLetter(int character) {
+        return (character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z');
+    }
+
+    private boolean isDigit(int character) {
+        return character >= '0' && character <= '9';
+    }
+
+    /**
+     * Vrne trenutni leksikalni simbol, ki ostane v lastnistvu leksikalnega
+     * analizatorja.
+     *
+     * @return Leksikalni simbol.
+     */
+    public Token peekToken() {
+        if (buffToken == null)
+            nextToken();
+        return buffToken;
+    }
+
+    /**
+     * Vrne trenutni leksikalni simbol, ki preide v lastnistvo klicoce kode.
+     *
+     * @return Leksikalni simbol.
+     */
+    public Token takeToken() {
+        if (buffToken == null)
+            nextToken();
+        final Token thisToken = buffToken;
+        buffToken = null;
+        return thisToken;
+    }
+
+    // --- ZAGON ---
+
+    /**
+     * Zagon leksikalnega analizatorja kot samostojnega programa.
+     *
+     * @param cmdLineArgs Argumenti v ukazni vrstici.
+     */
+    public static void main(final String[] cmdLineArgs) {
+        System.out.println("This is PINS'25 compiler (lexical analysis):");
+
+        try {
+            if (cmdLineArgs.length == 0)
+                throw new Report.Error("No source file specified in the command line.");
+            if (cmdLineArgs.length > 1)
+                Report.warning("Unused arguments in the command line.");
+
+            try (LexAn lexAn = new LexAn(cmdLineArgs[0])) {
+                while (lexAn.peekToken().symbol() != Token.Symbol.EOF)
+                    System.out.println(lexAn.takeToken());
+                System.out.println(lexAn.takeToken()); // EOF token
+            }
+
+            // Upajmo, da kdaj pridemo to te tocke.
+            // A zavedajmo se sledecega:
+            // 1. Prevod je zaradi napak v programu lahko napacen :-o
+            // 2. Izvorni program se zdalec ni tisto, kar je programer hotel, da bi bil ;-)
+
+            Report.info("Done.");
+        } catch (Report.Error error) {
+            System.err.println(error.getMessage());
+            System.exit(1);
+        }
+    }
 }

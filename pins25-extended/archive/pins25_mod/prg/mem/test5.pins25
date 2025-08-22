@@ -1,7 +1,0 @@
-var foo = 2 * "a", 2 * "b"
-var bar = 4 * "Hello, World!"
-var funny = 69 * "\0b"
-var x1 =
-var xa = 0 * 1
-var xb = 0 * 1, 0 * "avc"
-var xd = 0 * 1, 0 * "avc", "aaa"

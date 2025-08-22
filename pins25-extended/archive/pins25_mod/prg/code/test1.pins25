@@ -1,9 +1,0 @@
-fun exit(exitcode)
-fun putint(intvalue)
-fun putstr(straddr)
-
-fun mod(a, b) = a + b
-
-fun main() = 
-    putint(mod(12, 5)),
-    exit(0)
