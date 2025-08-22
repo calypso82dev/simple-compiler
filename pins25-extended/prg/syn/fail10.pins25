@@ -1,0 +1,4 @@
+fun a() =
+    while 1 then
+        neki
+    end

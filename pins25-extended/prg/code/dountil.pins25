@@ -1,0 +1,11 @@
+fun putint(int)
+
+var num = 0
+
+fun main() =
+    do
+        putint(num),
+        num = num + 1,
+        if num > 5 then break end
+    until num < 10 end,
+    0

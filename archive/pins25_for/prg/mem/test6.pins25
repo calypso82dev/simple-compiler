@@ -1,0 +1,7 @@
+fun f(a) =
+    let fun g(b) =
+        let fun h(c) =
+            let var k = 3 in c end,
+            let fun i(d) in c end
+         in b end
+    in a end

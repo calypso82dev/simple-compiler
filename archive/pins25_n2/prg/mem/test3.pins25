@@ -1,0 +1,22 @@
+var n=5
+var a=100*1
+
+fun add(a,b)=let var c=0 in c=a+b, c end
+
+fun sum(n)=
+        let var sum=0
+        in
+                let var i=0
+                in
+                        while (i<=n) do
+                                sum=sum+i,
+                                i=i+1
+                        end,
+                        sum
+                end
+        end
+
+fun main()=putint(add(n,3))
+
+fun putstr(straddr)
+fun putint(intvalue)
