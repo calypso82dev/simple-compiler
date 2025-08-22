@@ -438,11 +438,20 @@ public class Memory {
 	 * @return Vrednost celostevilske konstante.
 	 */
 	public static Integer decodeIntConst(final AST.AtomExpr intAtomExpr, final Report.Locatable loc) {
-		try {
-			return Integer.decode(intAtomExpr.value);
-		} catch (NumberFormatException __) {
-			throw new Report.Error(loc, "Illegal integer value.");
-		}
+        try {
+            String value = intAtomExpr.value;
+            if (value.startsWith("0x") || value.startsWith("0X")) {
+                return Integer.parseInt(value.substring(2), 16);
+            } else if (value.startsWith("0b") || value.startsWith("0B")) {
+                return Integer.parseInt(value.substring(2), 2);
+            } else if (value.startsWith("0o") || value.startsWith("0O")) {
+                return Integer.parseInt(value.substring(2), 8);
+            } else {
+                return Integer.parseInt(value, 10);
+            }
+        } catch (NumberFormatException __) {
+            throw new Report.Error(loc, "Illegal integer value.");
+        }
 	}
 
 	/**
@@ -453,22 +462,36 @@ public class Memory {
 	 * @return Vrednost znakovne konstante.
 	 */
 	public static Integer decodeChrConst(final AST.AtomExpr chrAtomExpr, final Report.Locatable loc) {
-		switch (chrAtomExpr.value.charAt(1)) {
-		case '\\':
-			switch (chrAtomExpr.value.charAt(2)) {
-			case 'n':
-				return 10;
-			case '\'':
-				return ((int) '\'');
-			case '\\':
-				return ((int) '\\');
-			default:
-				return 16 * (((int) chrAtomExpr.value.charAt(2)) - ((int) '0'))
-						+ (((int) chrAtomExpr.value.charAt(3)) - ((int) '0'));
-			}
-		default:
-			return ((int) chrAtomExpr.value.charAt(1));
-		}
+        String value = chrAtomExpr.value;
+        if (value.charAt(1) == '\\') {
+            // Escape sequence
+            if (value.charAt(2) == 'n') {
+                return 10;
+            } else if (value.charAt(2) == '\'') {
+                return (int) '\'';
+            } else if (value.charAt(2) == '\\') {
+                return (int) '\\';
+            } else if (value.charAt(2) == 'x') {
+                // New format: \x41
+                String hexDigits = value.substring(3, 5);
+                return Integer.parseInt(hexDigits, 16);
+            } else if (value.charAt(2) == 'b') {
+                // New format: \b01000001
+                String binaryDigits = value.substring(3, 11);
+                return Integer.parseInt(binaryDigits, 2);
+            } else if (value.charAt(2) == 'o') {
+                // New format: \o101
+                String octalDigits = value.substring(3, 6);
+                return Integer.parseInt(octalDigits, 8);
+            } else {
+                // Legacy format: \41
+                String hexDigits = value.substring(2, 4);
+                return Integer.parseInt(hexDigits, 16);
+            }
+        } else {
+            // Regular character
+            return (int) value.charAt(1);
+        }
 	}
 
 	/** ,
@@ -478,38 +501,57 @@ public class Memory {
 	 * @param loc         Lokacija konstantnega niza.
 	 * @return Vrendnost konstantega niza.
 	 */
-	public static Vector<Integer> decodeStrConst(final AST.AtomExpr strAtomExpr, final Report.Locatable loc) {
-		final Vector<Integer> value = new Vector<Integer>();
-		for (int c = 1; c < strAtomExpr.value.length() - 1; c++) {
-			switch (strAtomExpr.value.charAt(c)) {
-			case '\\':
-				switch (strAtomExpr.value.charAt(c + 1)) {
-				case 'n':
-					value.addLast(10);
-					c += 1;
-					break;
-				case '\"':
-					value.addLast((int) '\"');
-					c += 1;
-					break;
-				case '\\':
-					value.addLast((int) '\\');
-					c += 1;
-					break;
-				default:
-					value.addLast(16 * (((int) strAtomExpr.value.charAt(c + 1)) - ((int) '0'))
-							+ (((int) strAtomExpr.value.charAt(c + 2)) - ((int) '0')));
-					c += 2;
-					break;
-				}
-				break;
-			default:
-				value.addLast((int) strAtomExpr.value.charAt(c));
-				break;
-			}
-		}
-		return value;
-	}
+    public static Vector<Integer> decodeStrConst(final AST.AtomExpr strAtomExpr, final Report.Locatable loc) {
+        final Vector<Integer> value = new Vector<Integer>();
+        for (int c = 1; c < strAtomExpr.value.length() - 1; c++) {
+            switch (strAtomExpr.value.charAt(c)) {
+                case '\\':
+                    switch (strAtomExpr.value.charAt(c + 1)) {
+                        case 'n':
+                            value.addLast(10);
+                            c += 1;
+                            break;
+                        case '\"':
+                            value.addLast((int) '\"');
+                            c += 1;
+                            break;
+                        case '\\':
+                            value.addLast((int) '\\');
+                            c += 1;
+                            break;
+                        case 'x':
+                            // New format: \x41
+                            String hexDigits = strAtomExpr.value.substring(c + 2, c + 4);
+                            value.addLast(Integer.parseInt(hexDigits, 16));
+                            c += 3;
+                            break;
+                        case 'b':
+                            // New format: \b01000001
+                            String binaryDigits = strAtomExpr.value.substring(c + 2, c + 10);
+                            value.addLast(Integer.parseInt(binaryDigits, 2));
+                            c += 9;
+                            break;
+                        case 'o':
+                            // New format: \o101
+                            String octalDigits = strAtomExpr.value.substring(c + 2, c + 5);
+                            value.addLast(Integer.parseInt(octalDigits, 8));
+                            c += 4;
+                            break;
+                        default:
+                            // Legacy format: \41
+                            value.addLast(16 * (((int) strAtomExpr.value.charAt(c + 1)) - ((int) '0'))
+                                    + (((int) strAtomExpr.value.charAt(c + 2)) - ((int) '0')));
+                            c += 2;
+                            break;
+                    }
+                    break;
+                default:
+                    value.addLast((int) strAtomExpr.value.charAt(c));
+                    break;
+            }
+        }
+        return value;
+    }
 
 	// --- ZAGON ---
 

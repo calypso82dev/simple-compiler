@@ -11,7 +11,7 @@ import pins25.common.*;
 public class SynAn implements AutoCloseable {
 
 	/** Leksikalni analizator. */
-	private final LexAn_old lexAn;
+	private final LexAn lexAn;
 
 	/**
 	 * Ustvari nov sintaksni analizator.
@@ -19,7 +19,7 @@ public class SynAn implements AutoCloseable {
 	 * @param srcFileName Ime izvorne datoteke.
 	 */
 	public SynAn(final String srcFileName) {
-		this.lexAn = new LexAn_old(srcFileName);
+		this.lexAn = new LexAn(srcFileName);
 	}
 
 	@Override
@@ -1147,7 +1147,6 @@ public class SynAn implements AutoCloseable {
 		// Value only -> 1 * value
 		AST.AtomExpr atomExprNum = new AST.AtomExpr(AST.AtomExpr.Type.INTCONST, "1");
 
-
 		switch (token.symbol()) {
 			case Token.Symbol.INTCONST:
 				// Production: init -> int mul_const_expr
@@ -1155,7 +1154,7 @@ public class SynAn implements AutoCloseable {
 				AST.AtomExpr intExpr = new AST.AtomExpr(AST.AtomExpr.Type.INTCONST, value.lexeme());
 				AST.AtomExpr mulConstExpr = parseMulConstExpr();
 				if (mulConstExpr != null) {
-					// mulConstExpr = constant, set Num to value 
+					// mulConstExpr = constant, set Num to value
 					atomExprNum = intExpr;
 					atomExprVal = mulConstExpr;
 					this.attrLoc.put(atomExprNum, value);

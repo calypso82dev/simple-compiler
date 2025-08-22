@@ -2,15 +2,22 @@ fun exit(exitcode)
 fun putint(intvalue)
 fun putstr(straddr)
 
-var x = 0xA
-var c = '\b00001111'
 var d = "\x41\o101\b01000001 Danes je lep dan\n\00"
+
+var x = 0xA
+var e = 0B101
+var f = 0o10
+var c = '\b00001111'
+
 var y = 2
 fun add(a, b) = a + b
 
 
 fun main() =
     putstr(^d),
+    putint(x),
+    putint(e),
+    putint(f),
     putint(c),
     putint(add(0b11, y)),
     putstr("\n\00"),

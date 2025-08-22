@@ -32,26 +32,9 @@ public class LexAn implements AutoCloseable {
         }
     }
 
-    /**
-     * Trenutni znak izvorne datoteke.
-     */
-    private int buffChar = -2;
-    /**
-     * Vrstica trenutnega znaka.
-     */
-    private int buffCharLine = 0;
-    /**
-     * Stolpec trenutnega znaka.
-     */
-    private int buffCharColumn = 0;
-
-    /**
-     * Trenutni leksikalni simbol.
-     * "Ce vrednost spremenljivke {@code buffToken} ni {@code null}, je simbol "ze
-     * prebran iz vhodne datoteke, ni pa "se predan naprej sintaksnemu analizatorju.
-     * Ta simbol je dostopen z metodama {@link peekToken} in {@link takeToken}.
-     */
-    private Token buffToken = null;
+    private static final int MAX_HEX_DIGITS = 4;     // 0xFF (8 bits)
+    private static final int MAX_BINARY_DIGITS = 8;  // 0b11111111 (8 bits)
+    private static final int MAX_OCTAL_DIGITS = 3;   // 0o777 (7×64 + 7×8 + 7×1 = 511) (9 bits)
 
     // Konstante za posebne znake
     private static final int EOF = -1;
@@ -80,14 +63,39 @@ public class LexAn implements AutoCloseable {
             Map.entry("end", Token.Symbol.END)
     );
 
-    // buffer trenutnega niza znakov -> Token
-    // if null, v bufferju ni znakov (new token)
-    //private String textBuffer = null;
+    /** Trenutni znak izvorne datoteke (glej {@link #nextChar}). */
+    private int buffChar = -2;
+
+    /** Vrstica trenutnega znaka izvorne datoteke (glej {@link #nextChar}). */
+    private int buffCharLine = 0;
+
+    /** Stolpec trenutnega znaka izvorne datoteke (glej {@link #nextChar}). */
+    private int buffCharColumn = 0;
 
     /**
-     * Prebere naslednji leksikalni simbol, ki je nato dostopen preko metod
-     * {@link peekToken} in {@link takeToken}.
+     * Prebere naslednji znak izvorne datoteke.
+     *
+     * Izvorno datoteko beremo znak po znak. Trenutni znak izvorne datoteke je
+     * shranjen v spremenljivki {@link #buffChar}, vrstica in stolpec trenutnega
+     * znaka izvorne datoteke sta shranjena v spremenljivkah {@link #buffCharLine} in
+     * {@link #buffCharColumn}.
+     *
+     * Začetne vrednosti {@link #buffChar}, {@link #buffCharLine} in
+     * {@link #buffCharColumn} so {@code '\n'}, {@code 0} in {@code 0}: branje prvega
+     * znaka izvorne datoteke bo na osnovi vrednosti {@code '\n'} spremenljivke
+     * {@link #buffChar} prvemu znaku izvorne datoteke priredilo vrstico 1 in stolpec
+     * 1.
+     *
+     * Pri branju izvorne datoteke se predpostavlja, da je v spremenljivki
+     * {@link #buffChar} ves čas veljaven znak. Zunaj metode {@link #nextChar} so vse
+     * spremenljivke {@link #buffChar}, {@link #buffCharLine} in
+     * {@link #buffCharColumn} namenjene le branju.
+     *
+     * Vrednost {@code -1} v spremenljivki {@link #buffChar} pomeni konec datoteke
+     * (vrednosti spremenljivk {@link #buffCharLine} in {@link #buffCharColumn} pa
+     * nista več veljavni).
      */
+
     private void nextChar() {
         try {
             switch (buffChar) {
@@ -123,6 +131,24 @@ public class LexAn implements AutoCloseable {
             throw new Report.Error("Cannot read source file.");
         }
     }
+
+    /**
+     * Trenutni leksikalni simbol.
+     *
+     * "Ce vrednost spremenljivke {@code buffToken} ni {@code null}, je simbol "ze
+     * prebran iz vhodne datoteke, ni pa "se predan naprej sintaksnemu analizatorju.
+     * Ta simbol je dostopen z metodama {@link #peekToken} in {@link #takeToken}.
+     */
+    private Token buffToken = null;
+
+    // buffer trenutnega niza znakov -> Token
+    // if null, v bufferju ni znakov (new token)
+    //private String textBuffer = null;
+
+    /**
+     * Prebere naslednji leksikalni simbol, ki je nato dostopen preko metod
+     * {@link #peekToken} in {@link #takeToken}.
+     */
 
     private void nextToken() {
         // Whitesapce skip
@@ -172,20 +198,55 @@ public class LexAn implements AutoCloseable {
     }
 
     private Token readNumber(int startLine, int startCol, StringBuilder lexeme) {
-        // Read all digits
-        while (isDigit(buffChar)) {
-            lexeme.append((char) buffChar);
+        // Check if Hex digit
+        // Format 0xA2
+        if (buffChar == '0' && (peekNextChar() == 'x' || peekNextChar() == 'X')) {
+            // Hex digit
+            lexeme.append((char)buffChar); // 0
             nextChar();
+            lexeme.append((char)buffChar); // x/X
+            nextChar();
+
+            // Process hex digits
+            readHexDigits(startLine, startCol, lexeme, MAX_HEX_DIGITS, false);
         }
+        else if (buffChar == '0' && (peekNextChar() == 'b' || peekNextChar() == 'B')) {
+            // Binary digit
+            lexeme.append((char)buffChar); // 0
+            nextChar();
+            lexeme.append((char)buffChar); // b/B
+            nextChar();
 
-        String number = lexeme.toString();
+            // Process binary digits
+            readBinaryDigits(startLine, startCol, lexeme, MAX_BINARY_DIGITS, false);
+        }
+        else if (buffChar == '0' && (peekNextChar() == 'o' || peekNextChar() == 'O')) {
+            // Octal digit
+            lexeme.append((char)buffChar); // 0
+            nextChar();
+            lexeme.append((char)buffChar); // o/O
+            nextChar();
 
-        // Check for leading zero (numbers like 01, 02 are illegal)
-        if (number.length() > 1 && number.charAt(0) == '0') {
-            throw new Report.Error(
-                    new Report.Location(startLine, startCol),
-                    "Illegal leading zero in number: " + number
-            );
+            // Process octal digits
+            readOctalDigits(startLine, startCol, lexeme, MAX_OCTAL_DIGITS, false);
+        }
+        else {
+            // Normal digit
+
+            // Read all digits
+            while (isDigit(buffChar)) {
+                lexeme.append((char) buffChar);
+                nextChar();
+            }
+
+            String number = lexeme.toString();
+
+            // Check for leading zero (numbers like 01, 02 are illegal)
+            if (number.length() > 1 && number.charAt(0) == '0') {
+                throw new Report.Error(new Report.Location(startLine, startCol),
+                        "Illegal leading zero in number: " + number
+                );
+            }
         }
 
         return createToken(startLine, startCol, lexeme, Token.Symbol.INTCONST);
@@ -202,7 +263,7 @@ public class LexAn implements AutoCloseable {
         // Closing of character - single quote
         if (buffChar != SINGLE_QUOTE) {
             throw new Report.Error(new Report.Location(startLine, startCol),
-                    "Unterminated string constant"
+                    "Unterminated character constant"
             );
         }
 
@@ -256,21 +317,24 @@ public class LexAn implements AutoCloseable {
                 // \" is only valid in string constants
                 lexeme.append((char) buffChar);
                 nextChar();
+            } else if (buffChar == 'x') {
+                // Hex escape: \x followed by hex digits
+                lexeme.append((char) buffChar); // x
+                nextChar();
+                readHexDigits(startLine, startCol, lexeme, 2, true);
+            } else if (buffChar == 'b') {
+                // Binary escape: \b followed by binary digits
+                lexeme.append((char) buffChar); // b
+                nextChar();
+                readBinaryDigits(startLine, startCol, lexeme, 8, true);
+            } else if (buffChar == 'o') {
+                // Octal escape: \o followed by octal digits
+                lexeme.append((char) buffChar); // o
+                nextChar();
+                readOctalDigits(startLine, startCol, lexeme, 3, true);
             } else if (isHexDigit(buffChar)) {
-                // Hex escape: \xx (valid in both)
-
-                // 1. Hex digit
-                lexeme.append((char) buffChar);
-                nextChar();
-                if (!isHexDigit(buffChar)) {
-                    // Invalid Hex character
-                    throw new Report.Error(new Report.Location(startLine, startCol),
-                            "Invalid hex escape sequence - expected two hex digits"
-                    );
-                }
-                // 2. Hex digit
-                lexeme.append((char) buffChar);
-                nextChar();
+                // Legacy: Hex escape \xx (valid in both)
+                readHexDigits(startLine, startCol, lexeme, 2, true);
             } else {
                 // Invalid Specail (esacpe sequence) character
                 throw new Report.Error(new Report.Location(startLine, startCol),
@@ -484,13 +548,125 @@ public class LexAn implements AutoCloseable {
     private boolean isHexDigit(int character) {
         return isDigit(character) || (character >= 'a' && character <= 'f') || (character >= 'A' && character <= 'F');
     }
-
+    private boolean isBinaryDigit(int character) {
+        return character == '0' || character == '1';
+    }
+    private boolean isOctalDigit(int character) {
+        return character >= '0' && character <= '7';
+    }
     private boolean isLetter(int character) {
         return (character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z');
     }
 
     private boolean isDigit(int character) {
         return character >= '0' && character <= '9';
+    }
+
+    private void readHexDigits(int startLine, int startCol, StringBuilder lexeme, int maxCount, boolean strictCount) {
+        // First hex digit
+        if (!isHexDigit(buffChar)) {
+            throw new Report.Error(new Report.Location(startLine, startCol),
+                    "Invalid hex literal - expected hex digit after 0x"
+            );
+        }
+
+        // Following hex digits
+        int digitCount = 0;
+        while (isHexDigit(buffChar) && digitCount < maxCount) {
+            lexeme.append((char) buffChar);
+            nextChar();
+            digitCount++;
+        }
+
+        if (strictCount) {
+            // Escape sequences: must have exactly maxCount digits
+            if (digitCount < maxCount) {
+                throw new Report.Error(new Report.Location(startLine, startCol),
+                        "Invalid hex escape sequence - expected exactly " + maxCount + " hex digits"
+                );
+            }
+        } else {
+            // Literals: check for overflow and invalid chars
+            if (isHexDigit(buffChar)) {
+                throw new Report.Error(new Report.Location(startLine, startCol),
+                        "Hex literal too long - maximum " + maxCount + " digits allowed");
+            }
+            if (isDigit(buffChar) || isLetter(buffChar)) {
+                throw new Report.Error(new Report.Location(startLine, startCol),
+                        "Invalid character in hex literal: " + (char)buffChar);
+            }
+        }
+    }
+    private void readBinaryDigits(int startLine, int startCol, StringBuilder lexeme, int maxCount, boolean strictCount) {
+        // First binary digit
+        if (!isBinaryDigit(buffChar)) {
+            throw new Report.Error(new Report.Location(startLine, startCol),
+                    "Invalid binary literal - expected binary digit after 0b"
+            );
+        }
+
+        // Following binary digits
+        int digitCount = 0;
+        while (isBinaryDigit(buffChar) && digitCount < maxCount) {
+            lexeme.append((char) buffChar);
+            nextChar();
+            digitCount++;
+        }
+
+        if (strictCount) {
+            // Escape sequences: must have exactly maxCount digits
+            if (digitCount < maxCount) {
+                throw new Report.Error(new Report.Location(startLine, startCol),
+                        "Invalid binary escape sequence - expected exactly " + maxCount + " binary digits"
+                );
+            }
+        } else {
+            // Literals: check for overflow and invalid chars
+            if (isBinaryDigit(buffChar)) {
+                throw new Report.Error(new Report.Location(startLine, startCol),
+                        "Binary literal too long - maximum " + maxCount + " digits allowed");
+            }
+            if (isDigit(buffChar) || isLetter(buffChar)) {
+                throw new Report.Error(new Report.Location(startLine, startCol),
+                        "Invalid character in binary literal: " + (char)buffChar);
+            }
+        }
+    }
+
+    private void readOctalDigits(int startLine, int startCol, StringBuilder lexeme, int maxCount, boolean strictCount) {
+        // First oct digit
+        if (!isOctalDigit(buffChar)) {
+            throw new Report.Error(new Report.Location(startLine, startCol),
+                    "Invalid octal literal - expected octal digit after 0o"
+            );
+        }
+
+        // Following oct digits
+        int digitCount = 0;
+        while (isOctalDigit(buffChar) && digitCount < maxCount) {
+            lexeme.append((char) buffChar);
+            nextChar();
+            digitCount++;
+        }
+
+        if (strictCount) {
+            // Escape sequences: must have exactly maxCount digits
+            if (digitCount < maxCount) {
+                throw new Report.Error(new Report.Location(startLine, startCol),
+                        "Invalid octal escape sequence - expected exactly " + maxCount + " octal digits"
+                );
+            }
+        } else {
+            // Literals: check for overflow and invalid chars
+            if (isOctalDigit(buffChar)) {
+                throw new Report.Error(new Report.Location(startLine, startCol),
+                        "Octal literal too long - maximum " + maxCount + " digits allowed");
+            }
+            if (isDigit(buffChar) || isLetter(buffChar)) {
+                throw new Report.Error(new Report.Location(startLine, startCol),
+                        "Invalid character in octal literal: " + (char)buffChar);
+            }
+        }
     }
 
     /**
