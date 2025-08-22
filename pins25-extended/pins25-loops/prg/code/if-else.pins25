@@ -1,0 +1,13 @@
+fun exit(exitcode)
+fun putint(intvalue)
+fun putstr(straddr)
+
+
+fun main() = 
+    if 1 != 1 then 
+        putstr("Then\n\00")
+    else
+        putstr("Else\n\00")
+    end,
+    putstr("End\n\00"),
+    exit(0)

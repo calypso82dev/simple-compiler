@@ -1,0 +1,21 @@
+fun exit(exitcode)
+fun putint(intvalue)
+fun putstr(straddr)
+
+var i = 2
+
+fun foo(x) =
+    let
+        var i = 12
+    in
+        let var b = 10 in i = 25 end,
+        x = i
+    end,
+    x
+
+fun main() =
+    putint(foo(5)),
+    exit(0)
+
+
+

@@ -1,0 +1,57 @@
+fun exit(exitcode)
+fun putint(intvalue)
+fun putstr(straddr)
+
+var ptr = 0
+var x = 7
+var y = 42
+var z = 99
+var ptr2 = 0
+
+fun main() =
+    putstr("=== Pointer Operations Test ===\n\00"),
+
+    // Test 1: Basic reference and dereference
+    putstr("Test 1: Basic reference/dereference\n\00"),
+    putstr("x initial value: \00"), putint(x), putstr("\n\00"),
+    ptr = ^x,
+    putstr("ptr = ^x (ptr now points to x)\n\00"),
+    putstr("Value via ptr^: \00"), putint(ptr^), putstr("\n\n\00"),
+
+    // Test 2: Assignment through pointer
+    putstr("Test 2: Assignment through pointer\n\00"),
+    ptr^ = 100,
+    putstr("After ptr^ = 100:\n\00"),
+    putstr("x value: \00"), putint(x), putstr("\n\00"),
+    putstr("ptr^ value: \00"), putint(ptr^), putstr("\n\n\00"),
+
+    // Test 3: Change pointer target
+    putstr("Test 3: Change pointer target\n\00"),
+    putstr("y initial value: \00"), putint(y), putstr("\n\00"),
+    ptr = ^y,
+    putstr("ptr = ^y (ptr now points to y)\n\00"),
+    putstr("Value via ptr^: \00"), putint(ptr^), putstr("\n\n\00"),
+
+    // Test 4: Modify through new pointer target
+    putstr("Test 4: Modify through new pointer\n\00"),
+    ptr^ = 200,
+    putstr("After ptr^ = 200:\n\00"),
+    putstr("y value: \00"), putint(y), putstr("\n\00"),
+    putstr("x value (unchanged): \00"), putint(x), putstr("\n\n\00"),
+
+    // Test 5: Multiple pointer operations
+    putstr("Test 5: Multiple pointer operations\n\00"),
+    putstr("z initial value: \00"), putint(z), putstr("\n\00"),
+    ptr = ^z,
+    z = ptr^ + 1,
+    putstr("After z = ptr^ + 1:\n\00"),
+    putstr("z value: \00"), putint(z), putstr("\n\n\00"),
+
+    // Test 6: Pointer to pointer
+    putstr("Test 6: Pointer to pointer\n\00"),
+    ptr2 = ^ptr,
+    putstr("ptr2 = ^ptr (pointer to pointer)\n\00"),
+    putstr("Value via ptr2^^: \00"), putint(ptr2^^), putstr("\n\n\00"),
+
+    putstr("=== All tests completed ===\n\00"),
+    exit(0)

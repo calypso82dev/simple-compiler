@@ -1,0 +1,15 @@
+var test = "Test\00"
+var ptr =
+var x = 'c'
+
+fun main() =
+    putint(x),
+    putstr(^test),
+    ptr = ^test,
+    putstr(ptr),
+    putstr(ptr+4),
+    putstr(ptr+8),
+    0
+
+fun putstr(intvalue)
+fun putint(int)
