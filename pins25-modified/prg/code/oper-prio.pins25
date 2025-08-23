@@ -1,0 +1,8 @@
+fun exit(exitcode)
+fun putint(intvalue)
+fun putstr(straddr)
+
+
+fun main() =
+    putint(-15),
+    exit(0)

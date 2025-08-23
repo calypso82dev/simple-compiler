@@ -523,38 +523,82 @@ public class CodeGen {
 
 			@Override
 			public List<PDM.CodeInstr> visit(AST.BinExpr binExpr, Mem.Frame frame) {
-				List<PDM.CodeInstr> binInstr = new ArrayList<>();
-				Report.Locatable binLoc = attrAST.attrLoc.get(binExpr);
+				List<PDM.CodeInstr> codeInstr = new ArrayList<>();
+				Report.Locatable loc = attrAST.attrLoc.get(binExpr);
 
-				// Generate code for first operand
-				List<PDM.CodeInstr> fstCode = binExpr.fstExpr.accept(this, frame);
-                binInstr.addAll(fstCode);
+                List<PDM.CodeInstr> fstOper = binExpr.fstExpr.accept(this, frame);
+                List<PDM.CodeInstr> sndOper = binExpr.sndExpr.accept(this, frame);
 
+                if (binExpr.oper == AST.BinExpr.Oper.MOD) {
+                    // Special case
+                    // Divide, Multiply, Subtract
+                    codeInstr.addAll(fstOper);
+                    codeInstr.addAll(fstOper);
+                    codeInstr.addAll(sndOper);
+                    codeInstr.add(new PDM.OPER(PDM.OPER.Oper.DIV, loc));
+                    codeInstr.addAll(sndOper);
+                    codeInstr.add(new PDM.OPER(PDM.OPER.Oper.MUL, loc));
+                    codeInstr.add(new PDM.OPER(PDM.OPER.Oper.SUB, loc));
+                }
+                else if (binExpr.oper == AST.BinExpr.Oper.GEQ) {
+                    String eqLabel = generateJumpLabel() + "_EQU";   // Equal check code
+                    String gthLabal = generateJumpLabel() + "_GTH";   // GTH = true
+                    String endLabel = generateJumpLabel() + "_END";    // End
+                    // 1. GTH check
+                    codeInstr.addAll(fstOper);
+                    codeInstr.addAll(sndOper);
+                    codeInstr.add(new PDM.OPER(PDM.OPER.Oper.GTH, loc));
 
-				// Generate code for second operand
-				List<PDM.CodeInstr> sndCode = binExpr.sndExpr.accept(this, frame);
-                binInstr.addAll(sndCode);
+                    // Value = 1 -> go to gth true
+                    codeInstr.add(new PDM.NAME(gthLabal, loc)); // addr2 -> value != 0
+                    // Value = 0 -> got to equal check
+                    codeInstr.add(new PDM.NAME(eqLabel, loc)); // addr1 -> value == 0
+                    codeInstr.add(new PDM.CJMP(loc));
 
+                    // Equeal check
+                    codeInstr.add(new PDM.LABEL(eqLabel, loc));
+                    codeInstr.addAll(fstOper);
+                    codeInstr.addAll(sndOper);
+                    codeInstr.add(new PDM.OPER(PDM.OPER.Oper.EQU, loc));
+                    // If equal 1, else 0
+                    codeInstr.add(new PDM.NAME(endLabel, loc));
+                    codeInstr.add(new PDM.UJMP(loc));
 
-				// Apply binary operator
-				PDM.OPER.Oper oper = switch (binExpr.oper) {
-					case OR -> PDM.OPER.Oper.OR;
-					case AND -> PDM.OPER.Oper.AND;
-					case EQU -> PDM.OPER.Oper.EQU;
-					case NEQ -> PDM.OPER.Oper.NEQ;
-					case GTH -> PDM.OPER.Oper.GTH;
-					case LTH -> PDM.OPER.Oper.LTH;
-					case GEQ -> PDM.OPER.Oper.GEQ;
-					case LEQ -> PDM.OPER.Oper.LEQ;
-					case ADD -> PDM.OPER.Oper.ADD;
-					case SUB -> PDM.OPER.Oper.SUB;
-					case MUL -> PDM.OPER.Oper.MUL;
-					case DIV -> PDM.OPER.Oper.DIV;
-					case MOD -> PDM.OPER.Oper.MOD;
-				};
+                    // if GTH is ture - push cosnt 1 (original consumed by CJUMP)
+                    codeInstr.add(new PDM.LABEL(gthLabal, loc));
+                    codeInstr.add(new PDM.PUSH(1, loc));
 
-				binInstr.add(new PDM.OPER(oper, binLoc));
-				return binInstr;
+                    // End label
+                    codeInstr.add(new PDM.LABEL(endLabel, loc));
+                }
+                else {
+                    // Generate code for first operand
+                    codeInstr.addAll(fstOper);
+                    // Generate code for second operand
+                    codeInstr.addAll(sndOper);
+
+                    // Apply binary operator
+                    PDM.OPER.Oper oper = switch (binExpr.oper) {
+                        case OR -> PDM.OPER.Oper.OR;
+                        case AND -> PDM.OPER.Oper.AND;
+                        case EQU -> PDM.OPER.Oper.EQU;
+                        case NEQ -> PDM.OPER.Oper.NEQ;
+                        case GTH -> PDM.OPER.Oper.GTH;
+                        case LTH -> PDM.OPER.Oper.LTH;
+                        case GEQ -> PDM.OPER.Oper.GEQ;
+                        case LEQ -> PDM.OPER.Oper.LEQ;
+                        case ADD -> PDM.OPER.Oper.ADD;
+                        case SUB -> PDM.OPER.Oper.SUB;
+                        case MUL -> PDM.OPER.Oper.MUL;
+                        case DIV -> PDM.OPER.Oper.DIV;
+                        case MOD -> PDM.OPER.Oper.MOD;
+                        default -> throw new IllegalArgumentException("Unsupported operator: " + binExpr.oper);
+                    };
+
+                    codeInstr.add(new PDM.OPER(oper, loc));
+                }
+
+				return codeInstr;
 			}
 
 			@Override

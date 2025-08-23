@@ -701,7 +701,8 @@ public class SynAn implements AutoCloseable {
 	private AST.Expr parseMultiExpr()
 	{
 		// multi_expr -> pre_expr multi_expr2
-		AST.Expr exprL = parsePreExpr();
+//		AST.Expr exprL = parsePreExpr();
+		AST.Expr exprL = parsePostExpr(); // Process post expr first
 		return parseMultiExpr2(exprL);
 	}
 
@@ -719,7 +720,7 @@ public class SynAn implements AutoCloseable {
 			case Token.Symbol.MUL:
 				// Production: multi_expr2 -> mul pre_expr multi_expr2
 				check(Token.Symbol.MUL); // consume operator
-				exprR = parsePreExpr();
+				exprR = parsePostExpr();
 				binExpr = new AST.BinExpr(AST.BinExpr.Oper.MUL, exprL, exprR);
 				this.attrLoc.put(binExpr, getExprLocation(exprL, exprR));
 				expr = parseMultiExpr2(binExpr);
@@ -727,7 +728,7 @@ public class SynAn implements AutoCloseable {
 			case Token.Symbol.DIV:
 				// Production: multi_expr2 -> div pre_expr multi_expr2
 				check(Token.Symbol.DIV); // consume operator
-				exprR = parsePreExpr();
+				exprR = parsePostExpr();
 				binExpr = new AST.BinExpr(AST.BinExpr.Oper.DIV, exprL, exprR);
 				this.attrLoc.put(binExpr, getExprLocation(exprL, exprR));
 				expr = parseMultiExpr2(binExpr);
@@ -735,7 +736,7 @@ public class SynAn implements AutoCloseable {
 			case Token.Symbol.MOD:
 				// Production: multi_expr2 -> mod pre_expr multi_expr2
 				check(Token.Symbol.MOD); // consume operator
-				exprR = parsePreExpr();
+				exprR = parsePostExpr();
 				binExpr = new AST.BinExpr(AST.BinExpr.Oper.MOD, exprL, exprR);
 				this.attrLoc.put(binExpr, getExprLocation(exprL, exprR));
 				expr = parseMultiExpr2(binExpr);
@@ -786,38 +787,43 @@ public class SynAn implements AutoCloseable {
 			case Token.Symbol.NOT:
 				// Production: pre_expr -> not pre_expr
 				startLoc = check(Token.Symbol.NOT); // consume operator
-				exprR = parsePreExpr();
+				exprR = parsePreExpr(); // Recursievly process pre prefixes
 				unExpr = new AST.UnExpr(AST.UnExpr.Oper.NOT, exprR);
 				this.attrLoc.put(unExpr, new Report.Location(startLoc, getExprLocation(exprR)));
-				expr = parseMultiExpr2(unExpr);
+//				expr = parseMultiExpr2(unExpr);
+                expr = unExpr;
 				break;
 			case Token.Symbol.ADD:
 				// Production: pre_expr -> add pre_expr
 				startLoc = check(Token.Symbol.ADD); // consume operator
-				exprR = parsePreExpr();
+				exprR = parsePreExpr(); // Recursievly process pre prefixes
 				unExpr = new AST.UnExpr(AST.UnExpr.Oper.ADD, exprR);
 				this.attrLoc.put(unExpr, new Report.Location(startLoc, getExprLocation(exprR)));
-				expr = parseMultiExpr2(unExpr);
+//				expr = parseMultiExpr2(unExpr);
+                expr = unExpr;
 				break;
 			case Token.Symbol.SUB:
 				// Production: pre_expr -> sub pre_expr
 				startLoc = check(Token.Symbol.SUB); // consume operator
-				exprR = parsePreExpr();
+				exprR = parsePreExpr(); // Recursievly process pre prefixes
 				unExpr = new AST.UnExpr(AST.UnExpr.Oper.SUB, exprR);
 				this.attrLoc.put(unExpr, new Report.Location(startLoc, getExprLocation(exprR)));
-				expr = parseMultiExpr2(unExpr);
+//				expr = parseMultiExpr2(unExpr);
+                expr = unExpr;
 				break;
 			case Token.Symbol.PTR:
 				// Production: pre_expr -> ptr pre_expr
 				startLoc = check(Token.Symbol.PTR); // consume operator
-				exprR = parsePreExpr();
+				exprR = parsePreExpr(); // Recursievly process pre prefixes
 				unExpr = new AST.UnExpr(AST.UnExpr.Oper.MEMADDR, exprR);
 				this.attrLoc.put(unExpr, new Report.Location(startLoc, getExprLocation(exprR)));
-				expr = parseMultiExpr2(unExpr);
+//				expr = parseMultiExpr2(unExpr);
+                expr = unExpr;
 				break;
 			default:
 				// Production: pre_expr -> post_expr
-				expr = parsePostExpr();
+//				expr = parsePostExpr();
+				expr = parsePrimary();
 		}
 		return expr;
 	}
@@ -826,7 +832,8 @@ public class SynAn implements AutoCloseable {
 	private AST.Expr parsePostExpr()
 	{
 		// post_expr -> primary post_expr2
-		AST.Expr exprL = parsePrimary();
+//		AST.Expr exprL = parsePrimary();
+		AST.Expr exprL = parsePreExpr();
 		return parsePostExpr2(exprL);
 	}
 	private AST.Expr parsePostExpr2(AST.Expr exprL)
@@ -843,7 +850,7 @@ public class SynAn implements AutoCloseable {
 				Token endLoc = check(Token.Symbol.PTR); // consume operator
 				AST.UnExpr unExpr = new AST.UnExpr(AST.UnExpr.Oper.VALUEAT, exprL);
 				this.attrLoc.put(unExpr, new Report.Location(getExprLocation(exprL), endLoc));
-				expr = parsePostExpr2(unExpr);
+				expr = parsePostExpr2(unExpr); // Recursievly process post prefixes
 				break;
 
 

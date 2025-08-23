@@ -361,7 +361,8 @@ public class Machine {
 					case SUB:
 					case MUL:
 					case DIV:
-					case MOD: {
+//					case MOD:
+					{
 						final int snd = pop();
 						final int fst = pop();
 						int result = switch (i.oper) {
@@ -377,7 +378,7 @@ public class Machine {
 						case SUB -> fst - snd;
 						case MUL -> fst * snd;
 						case DIV -> fst / snd;
-						case MOD -> fst % snd;
+//						case MOD -> fst % snd;
 						default -> throw new Report.InternalError();
 						};
 						push(result, i);
