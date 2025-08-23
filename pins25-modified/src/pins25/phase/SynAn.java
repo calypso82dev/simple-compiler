@@ -787,6 +787,12 @@ public class SynAn implements AutoCloseable {
 			case Token.Symbol.NOT:
 				// Production: pre_expr -> not pre_expr
 				startLoc = check(Token.Symbol.NOT); // consume operator
+
+                // Check for consecutive operators
+                if (lexAn.peekToken().symbol() == Token.Symbol.NOT) {
+                    throw new Report.Error(lexAn.peekToken().location(),
+                            "Syntax error: Consecutive prefix operators not allowed");
+                }
 				exprR = parsePreExpr(); // Recursievly process pre prefixes
 				unExpr = new AST.UnExpr(AST.UnExpr.Oper.NOT, exprR);
 				this.attrLoc.put(unExpr, new Report.Location(startLoc, getExprLocation(exprR)));
@@ -796,6 +802,12 @@ public class SynAn implements AutoCloseable {
 			case Token.Symbol.ADD:
 				// Production: pre_expr -> add pre_expr
 				startLoc = check(Token.Symbol.ADD); // consume operator
+
+                // Check for consecutive operators
+                if (lexAn.peekToken().symbol() == Token.Symbol.ADD) {
+                    throw new Report.Error(lexAn.peekToken().location(),
+                            "Syntax error: Consecutive prefix operators not allowed");
+                }
 				exprR = parsePreExpr(); // Recursievly process pre prefixes
 				unExpr = new AST.UnExpr(AST.UnExpr.Oper.ADD, exprR);
 				this.attrLoc.put(unExpr, new Report.Location(startLoc, getExprLocation(exprR)));
@@ -805,6 +817,12 @@ public class SynAn implements AutoCloseable {
 			case Token.Symbol.SUB:
 				// Production: pre_expr -> sub pre_expr
 				startLoc = check(Token.Symbol.SUB); // consume operator
+
+                // Check for consecutive operators
+                if (lexAn.peekToken().symbol() == Token.Symbol.SUB) {
+                    throw new Report.Error(lexAn.peekToken().location(),
+                            "Syntax error: Consecutive prefix operators not allowed");
+                }
 				exprR = parsePreExpr(); // Recursievly process pre prefixes
 				unExpr = new AST.UnExpr(AST.UnExpr.Oper.SUB, exprR);
 				this.attrLoc.put(unExpr, new Report.Location(startLoc, getExprLocation(exprR)));
@@ -814,6 +832,12 @@ public class SynAn implements AutoCloseable {
 			case Token.Symbol.PTR:
 				// Production: pre_expr -> ptr pre_expr
 				startLoc = check(Token.Symbol.PTR); // consume operator
+
+                // Check for consecutive operators
+                if (lexAn.peekToken().symbol() == Token.Symbol.PTR) {
+                    throw new Report.Error(lexAn.peekToken().location(),
+                            "Syntax error: Consecutive prefix operators not allowed");
+                }
 				exprR = parsePreExpr(); // Recursievly process pre prefixes
 				unExpr = new AST.UnExpr(AST.UnExpr.Oper.MEMADDR, exprR);
 				this.attrLoc.put(unExpr, new Report.Location(startLoc, getExprLocation(exprR)));
@@ -848,6 +872,12 @@ public class SynAn implements AutoCloseable {
 			case Token.Symbol.PTR:
 				// Production: post_expr2 -> ptr post_expr2
 				Token endLoc = check(Token.Symbol.PTR); // consume operator
+
+                // Check for consecutive operators
+                if (lexAn.peekToken().symbol() == Token.Symbol.PTR) {
+                    throw new Report.Error(lexAn.peekToken().location(),
+                            "Syntax error: Consecutive postfix operators not allowed");
+                }
 				AST.UnExpr unExpr = new AST.UnExpr(AST.UnExpr.Oper.VALUEAT, exprL);
 				this.attrLoc.put(unExpr, new Report.Location(getExprLocation(exprL), endLoc));
 				expr = parsePostExpr2(unExpr); // Recursievly process post prefixes

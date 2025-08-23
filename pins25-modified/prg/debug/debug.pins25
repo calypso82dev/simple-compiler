@@ -2,6 +2,9 @@
 
 
 fun main() =
+    putint(--15),
     putint(-+15^^^^),
+    putint(++15),
+    putint(!x^),
     putint(-2 * 4),
     0
