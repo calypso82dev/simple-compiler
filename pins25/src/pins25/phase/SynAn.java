@@ -789,7 +789,8 @@ public class SynAn implements AutoCloseable {
 				exprR = parsePreExpr();
 				unExpr = new AST.UnExpr(AST.UnExpr.Oper.NOT, exprR);
 				this.attrLoc.put(unExpr, new Report.Location(startLoc, getExprLocation(exprR)));
-				expr = parseMultiExpr2(unExpr);
+//				expr = parseMultiExpr2(unExpr);
+                expr = unExpr;
 				break;
 			case Token.Symbol.ADD:
 				// Production: pre_expr -> add pre_expr
@@ -797,7 +798,8 @@ public class SynAn implements AutoCloseable {
 				exprR = parsePreExpr();
 				unExpr = new AST.UnExpr(AST.UnExpr.Oper.ADD, exprR);
 				this.attrLoc.put(unExpr, new Report.Location(startLoc, getExprLocation(exprR)));
-				expr = parseMultiExpr2(unExpr);
+//				expr = parseMultiExpr2(unExpr);
+                expr = unExpr;
 				break;
 			case Token.Symbol.SUB:
 				// Production: pre_expr -> sub pre_expr
@@ -805,7 +807,8 @@ public class SynAn implements AutoCloseable {
 				exprR = parsePreExpr();
 				unExpr = new AST.UnExpr(AST.UnExpr.Oper.SUB, exprR);
 				this.attrLoc.put(unExpr, new Report.Location(startLoc, getExprLocation(exprR)));
-				expr = parseMultiExpr2(unExpr);
+//				expr = parseMultiExpr2(unExpr);
+                expr = unExpr;
 				break;
 			case Token.Symbol.PTR:
 				// Production: pre_expr -> ptr pre_expr
@@ -813,7 +816,8 @@ public class SynAn implements AutoCloseable {
 				exprR = parsePreExpr();
 				unExpr = new AST.UnExpr(AST.UnExpr.Oper.MEMADDR, exprR);
 				this.attrLoc.put(unExpr, new Report.Location(startLoc, getExprLocation(exprR)));
-				expr = parseMultiExpr2(unExpr);
+//				expr = parseMultiExpr2(unExpr);
+                expr = unExpr;
 				break;
 			default:
 				// Production: pre_expr -> post_expr

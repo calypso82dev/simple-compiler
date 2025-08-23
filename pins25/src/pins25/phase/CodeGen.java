@@ -164,9 +164,9 @@ public class CodeGen {
 			}
 			private static final int INT_SIZE = 4;
 
-            private int jumpLabelCounter = 0;
+            private int labelCounter = 0;
             private String generateJumpLabel() {
-                return "J_L" + (jumpLabelCounter++);
+                return "L" + (labelCounter++);
             }
 
             private String generateStringLabel(AST.AtomExpr atomExpr) {
@@ -294,15 +294,14 @@ public class CodeGen {
 
 			@Override
 			public List<PDM.CodeInstr> visit(AST.ExprStmt exprStmt, Mem.Frame frame) {
-				List<PDM.CodeInstr> stmtInstr = new ArrayList<>();
-				Report.Locatable stmtLoc = attrAST.attrLoc.get(exprStmt);
+				List<PDM.CodeInstr> codeInstr = new ArrayList<>();
 
 				// Generate code for expression
 				List<PDM.CodeInstr> exprCode = exprStmt.expr.accept(this, frame);
-                stmtInstr.addAll(exprCode);
+                codeInstr.addAll(exprCode);
 
 
-				return stmtInstr;
+				return codeInstr;
 			}
 
 			@Override
@@ -327,91 +326,89 @@ public class CodeGen {
 
 			@Override
 			public List<PDM.CodeInstr> visit(AST.IfStmt ifStmt, Mem.Frame frame) {
-				List<PDM.CodeInstr> ifInstr = new ArrayList<>();
-				Report.Locatable ifLoc = attrAST.attrLoc.get(ifStmt);
+				List<PDM.CodeInstr> codeInstr = new ArrayList<>();
+				Report.Locatable loc = attrAST.attrLoc.get(ifStmt);
 
-				String thenLabel = generateJumpLabel();
-				String elseLabel = generateJumpLabel();
-				String endLabel = generateJumpLabel();
+				String thenLabel = "J_IF_THEN_" + generateJumpLabel();
+				String elseLabel = "J_IF_ELSE_" + generateJumpLabel();
+				String endLabel = "J_IF_END_" + generateJumpLabel();
 
 				// Generate condition code (value is now on stack)
 				List<PDM.CodeInstr> condCode = ifStmt.cond.accept(this, frame);
-                ifInstr.addAll(condCode);
+                codeInstr.addAll(condCode);
 
 
 				// First jump: CJMP - if condition != 0, go to then; if condition == 0, go to else
-				ifInstr.add(new PDM.NAME(thenLabel, ifLoc));     // addr2 - go to then (condition != 0)
-				ifInstr.add(new PDM.NAME(elseLabel, ifLoc));     // addr1 - go to else (condition == 0)
-				ifInstr.add(new PDM.CJMP(ifLoc));
+				codeInstr.add(new PDM.NAME(thenLabel, loc));     // addr2 - go to then (condition != 0)
+				codeInstr.add(new PDM.NAME(elseLabel, loc));     // addr1 - go to else (condition == 0)
+				codeInstr.add(new PDM.CJMP(loc));
 
 				// Then label and statements
-				ifInstr.add(new PDM.LABEL(thenLabel, ifLoc));
+				codeInstr.add(new PDM.LABEL(thenLabel, loc));
 				for (AST.Stmt stmt : ifStmt.thenStmts) {
 					List<PDM.CodeInstr> stmtCode = stmt.accept(this, frame);
-                    ifInstr.addAll(stmtCode);
+                    codeInstr.addAll(stmtCode);
 				}
 
 				// Second jump: UJMP - after then statements, jump to end (skip else)
-				ifInstr.add(new PDM.NAME(endLabel, ifLoc));
-				ifInstr.add(new PDM.UJMP(ifLoc));
+				codeInstr.add(new PDM.NAME(endLabel, loc));
+				codeInstr.add(new PDM.UJMP(loc));
 
 				// Else label and statements
-				ifInstr.add(new PDM.LABEL(elseLabel, ifLoc));
+				codeInstr.add(new PDM.LABEL(elseLabel, loc));
 				for (AST.Stmt stmt : ifStmt.elseStmts) {
 					List<PDM.CodeInstr> stmtCode = stmt.accept(this, frame);
-                    ifInstr.addAll(stmtCode);
+                    codeInstr.addAll(stmtCode);
 
 				}
 
 				// End label
-				ifInstr.add(new PDM.LABEL(endLabel, ifLoc));
+				codeInstr.add(new PDM.LABEL(endLabel, loc));
 
-				return ifInstr;
+				return codeInstr;
 			}
 
 			@Override
 			public List<PDM.CodeInstr> visit(AST.WhileStmt whileStmt, Mem.Frame frame) {
-				List<PDM.CodeInstr> whileInstr = new ArrayList<>();
-				Report.Locatable whileLoc = attrAST.attrLoc.get(whileStmt);
+				List<PDM.CodeInstr> codeInstr = new ArrayList<>();
+				Report.Locatable loc = attrAST.attrLoc.get(whileStmt);
 
-				String startLabel = generateJumpLabel();  // Beginning of loop (condition check)
-				String bodyLabel = generateJumpLabel();   // Start of loop body
-				String endLabel = generateJumpLabel();    // End of loop
+				String startLabel = "J_WH_START_" + generateJumpLabel();  // Beginning of loop (condition check)
+				String bodyLabel = "J_WH_BODY_" + generateJumpLabel();   // Start of loop body
+				String endLabel = "J_WH_END_" + generateJumpLabel();    // End of loop
 
 				// Start label - where we check the condition
-				whileInstr.add(new PDM.LABEL(startLabel, whileLoc));
+				codeInstr.add(new PDM.LABEL(startLabel, loc));
 
 				// Generate condition code (value is now on stack)
 				List<PDM.CodeInstr> condCode = whileStmt.cond.accept(this, frame);
-                whileInstr.addAll(condCode);
+                codeInstr.addAll(condCode);
 
 				// First jump: CJMP - if condition == 0, exit loop; if condition != 0, continue to body
-				whileInstr.add(new PDM.NAME(bodyLabel, whileLoc));   // addr2 - go to body (condition != 0)
-				whileInstr.add(new PDM.NAME(endLabel, whileLoc));    // addr1 - go to end (condition == 0) - EXIT LOOP
-				whileInstr.add(new PDM.CJMP(whileLoc));
+				codeInstr.add(new PDM.NAME(bodyLabel, loc));   // addr2 - go to body (condition != 0)
+				codeInstr.add(new PDM.NAME(endLabel, loc));    // addr1 - go to end (condition == 0) - EXIT LOOP
+				codeInstr.add(new PDM.CJMP(loc));
 
 				// Body label and statements
-				whileInstr.add(new PDM.LABEL(bodyLabel, whileLoc));
+				codeInstr.add(new PDM.LABEL(bodyLabel, loc));
 				for (AST.Stmt stmt : whileStmt.stmts) {
 					List<PDM.CodeInstr> stmtCode = stmt.accept(this, frame);
-                    whileInstr.addAll(stmtCode);
+                    codeInstr.addAll(stmtCode);
 
 				}
 
 				// Second jump: UJMP - after body, jump back to start (condition check)
-				whileInstr.add(new PDM.NAME(startLabel, whileLoc));
-				whileInstr.add(new PDM.UJMP(whileLoc));
+				codeInstr.add(new PDM.NAME(startLabel, loc));
+				codeInstr.add(new PDM.UJMP(loc));
 
 				// End label
-				whileInstr.add(new PDM.LABEL(endLabel, whileLoc));
+				codeInstr.add(new PDM.LABEL(endLabel, loc));
 
-				return whileInstr;
+				return codeInstr;
 			}
 			@Override
 			public List<PDM.CodeInstr> visit(AST.LetStmt letStmt, Mem.Frame frame) {
 				List<PDM.CodeInstr> codeInstr = new ArrayList<>();
-				Report.Locatable loc = attrAST.attrLoc.get(letStmt);
-                System.identityHashCode(letStmt);
 
                 // MainDefs code (funDef, varDef)
                 for (AST.MainDef def : letStmt.defs)
@@ -423,7 +420,6 @@ public class CodeGen {
                     {
                         codeInstr.addAll(defCode);
                     }
-
                 }
 
 				// Generate code for statements
@@ -437,36 +433,36 @@ public class CodeGen {
 
 			@Override
 			public List<PDM.CodeInstr> visit(AST.AtomExpr atomExpr, Mem.Frame frame) {
-				List<PDM.CodeInstr> atomInstr = new ArrayList<>();
-				Report.Locatable atomLoc = attrAST.attrLoc.get(atomExpr);
+				List<PDM.CodeInstr> codeInstr = new ArrayList<>();
+				Report.Locatable loc = attrAST.attrLoc.get(atomExpr);
 
 				switch (atomExpr.type) {
 					case INTCONST -> {
-						Integer value = Memory.decodeIntConst(atomExpr, atomLoc);
-						atomInstr.add(new PDM.PUSH(value, atomLoc));
+						Integer value = Memory.decodeIntConst(atomExpr, loc);
+						codeInstr.add(new PDM.PUSH(value, loc));
 					}
 					case CHRCONST -> {
-						Integer value = Memory.decodeChrConst(atomExpr, atomLoc);
-						atomInstr.add(new PDM.PUSH(value, atomLoc));
+						Integer value = Memory.decodeChrConst(atomExpr, loc);
+						codeInstr.add(new PDM.PUSH(value, loc));
 					}
 					case STRCONST -> {
-						Vector<Integer> chars = Memory.decodeStrConst(atomExpr, atomLoc);
+						Vector<Integer> chars = Memory.decodeStrConst(atomExpr, loc);
 
                         // Generate simple null-terminated string for function calls like putstr
                         String strLabel = generateStringLabel(atomExpr);
-                        atomInstr.add(new PDM.NAME(strLabel, atomLoc));
+                        codeInstr.add(new PDM.NAME(strLabel, loc));
 
                         List<PDM.DataInstr> strData = new ArrayList<>();
-                        strData.add(new PDM.LABEL(strLabel, atomLoc));
+                        strData.add(new PDM.LABEL(strLabel, loc));
                         // Simple format: just characters
                         for (Integer ch : chars) {
-                            strData.add(new PDM.DATA(ch, atomLoc));
+                            strData.add(new PDM.DATA(ch, loc));
                         }
                         attrAST.attrData.put(atomExpr, strData);
 					}
 				}
 
-				return atomInstr;
+				return codeInstr;
 			}
 
 			@Override
@@ -523,17 +519,17 @@ public class CodeGen {
 
 			@Override
 			public List<PDM.CodeInstr> visit(AST.BinExpr binExpr, Mem.Frame frame) {
-				List<PDM.CodeInstr> binInstr = new ArrayList<>();
-				Report.Locatable binLoc = attrAST.attrLoc.get(binExpr);
+				List<PDM.CodeInstr> codeInstr = new ArrayList<>();
+				Report.Locatable loc = attrAST.attrLoc.get(binExpr);
 
 				// Generate code for first operand
 				List<PDM.CodeInstr> fstCode = binExpr.fstExpr.accept(this, frame);
-                binInstr.addAll(fstCode);
+                codeInstr.addAll(fstCode);
 
 
 				// Generate code for second operand
 				List<PDM.CodeInstr> sndCode = binExpr.sndExpr.accept(this, frame);
-                binInstr.addAll(sndCode);
+                codeInstr.addAll(sndCode);
 
 
 				// Apply binary operator
@@ -553,8 +549,8 @@ public class CodeGen {
 					case MOD -> PDM.OPER.Oper.MOD;
 				};
 
-				binInstr.add(new PDM.OPER(oper, binLoc));
-				return binInstr;
+				codeInstr.add(new PDM.OPER(oper, loc));
+				return codeInstr;
 			}
 
 			@Override

@@ -821,34 +821,34 @@ public class SynAn implements AutoCloseable {
 			case Token.Symbol.NOT:
 				// Production: pre_expr -> not pre_expr
 				startLoc = check(Token.Symbol.NOT); // consume operator
-				exprR = parsePreExpr();
+				exprR = parsePreExpr(); // Recursively parse prefix operators
 				unExpr = new AST.UnExpr(AST.UnExpr.Oper.NOT, exprR);
 				this.attrLoc.put(unExpr, new Report.Location(startLoc, getExprLocation(exprR)));
-				expr = parseMultiExpr2(unExpr);
+                expr = unExpr;
 				break;
 			case Token.Symbol.ADD:
 				// Production: pre_expr -> add pre_expr
 				startLoc = check(Token.Symbol.ADD); // consume operator
-				exprR = parsePreExpr();
+				exprR = parsePreExpr(); // Recursively parse prefix operators
 				unExpr = new AST.UnExpr(AST.UnExpr.Oper.ADD, exprR);
 				this.attrLoc.put(unExpr, new Report.Location(startLoc, getExprLocation(exprR)));
-				expr = parseMultiExpr2(unExpr);
+                expr = unExpr;
 				break;
 			case Token.Symbol.SUB:
 				// Production: pre_expr -> sub pre_expr
 				startLoc = check(Token.Symbol.SUB); // consume operator
-				exprR = parsePreExpr();
+				exprR = parsePreExpr(); // Recursively parse prefix operators
 				unExpr = new AST.UnExpr(AST.UnExpr.Oper.SUB, exprR);
 				this.attrLoc.put(unExpr, new Report.Location(startLoc, getExprLocation(exprR)));
-				expr = parseMultiExpr2(unExpr);
+                expr = unExpr;
 				break;
 			case Token.Symbol.PTR:
 				// Production: pre_expr -> ptr pre_expr
 				startLoc = check(Token.Symbol.PTR); // consume operator
-				exprR = parsePreExpr();
+				exprR = parsePreExpr(); // Recursively parse prefix operators
 				unExpr = new AST.UnExpr(AST.UnExpr.Oper.MEMADDR, exprR);
 				this.attrLoc.put(unExpr, new Report.Location(startLoc, getExprLocation(exprR)));
-				expr = parseMultiExpr2(unExpr);
+                expr = unExpr;
 				break;
 			default:
 				// Production: pre_expr -> post_expr
@@ -878,7 +878,7 @@ public class SynAn implements AutoCloseable {
 				Token endLoc = check(Token.Symbol.PTR); // consume operator
 				AST.UnExpr unExpr = new AST.UnExpr(AST.UnExpr.Oper.VALUEAT, exprL);
 				this.attrLoc.put(unExpr, new Report.Location(getExprLocation(exprL), endLoc));
-				expr = parsePostExpr2(unExpr);
+				expr = parsePostExpr2(unExpr); // Recursively parse postfix operators
 				break;
 
 

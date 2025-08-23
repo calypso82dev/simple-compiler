@@ -167,9 +167,9 @@ public class CodeGen {
             // Stack tracking loop exit labels (while, until) for break stmts
             private Stack<String> loopExitLabels = new Stack<>();
 
-            private int jumpLabelCounter = 0;
+            private int labelCounter = 0;
             private String generateJumpLabel() {
-                return "J_L" + (jumpLabelCounter++);
+                return "L" + (labelCounter++);
             }
 
             private String generateStringLabel(AST.AtomExpr atomExpr) {
@@ -316,7 +316,6 @@ public class CodeGen {
                 codeInstr.addAll(srcCode);
 
 				// 2. Destination address (left side)
-//				List<PDM.CodeInstr> dstCode = handleAddressOf(assignStmt.dstExpr, frame);
 				List<PDM.CodeInstr> dstCode = assignStmt.dstExpr.accept(this, frame);
                 codeInstr.addAll(dstCode);
 
@@ -331,9 +330,9 @@ public class CodeGen {
 				List<PDM.CodeInstr> codeInstr = new ArrayList<>();
 				Report.Locatable loc = attrAST.attrLoc.get(ifStmt);
 
-				String thenLabel = generateJumpLabel();
-				String elseLabel = generateJumpLabel();
-				String endLabel = generateJumpLabel();
+                String thenLabel = "J_IF_THEN_" + generateJumpLabel();
+                String elseLabel = "J_IF_ELSE_" + generateJumpLabel();
+                String endLabel = "J_IF_END_" + generateJumpLabel();
 
 				// Generate condition code (value is now on stack)
 				List<PDM.CodeInstr> condCode = ifStmt.cond.accept(this, frame);
@@ -375,9 +374,9 @@ public class CodeGen {
 				List<PDM.CodeInstr> codeInstr = new ArrayList<>();
 				Report.Locatable loc = attrAST.attrLoc.get(whileStmt);
 
-				String startLabel = generateJumpLabel();  // Beginning of loop (condition check)
-				String bodyLabel = generateJumpLabel();   // Start of loop body
-				String endLabel = generateJumpLabel();    // End of loop
+                String startLabel = "J_WH_START_" + generateJumpLabel();  // Beginning of loop (condition check)
+                String bodyLabel = "J_WH_BODY_" + generateJumpLabel();   // Start of loop body
+                String endLabel = "J_WH_END_" + generateJumpLabel();    // End of loop
 
 				// Start label - where we check the condition
 				codeInstr.add(new PDM.LABEL(startLabel, loc));
@@ -419,8 +418,8 @@ public class CodeGen {
                 List<PDM.CodeInstr> codeInstr = new ArrayList<>();
                 Report.Locatable loc = attrAST.attrLoc.get(untilStmt);
 
-                String startLabel = generateJumpLabel();  // Beginning of loop (condition check)
-                String endLabel = generateJumpLabel();    // End of loop
+                String startLabel = "J_DU_START_" + generateJumpLabel();  // Beginning of loop (condition check)
+                String endLabel = "J_DU_END_" + generateJumpLabel();    // End of loop
 
                 // Start label
                 codeInstr.add(new PDM.LABEL(startLabel, loc));
