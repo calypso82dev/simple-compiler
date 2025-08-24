@@ -1071,6 +1071,7 @@ public class AST {
 		 */
 		public void log() {
 			attrAST.ast.accept(new LoggerVisitor(), new LoggerVisitor.Log(0, "Program:"));
+            System.out.print("\033[0m"); // Force reset formatting
 		}
 
 		/**

@@ -40,7 +40,7 @@ public class Abstr {
 		}
 
 		/**
-		 * Ustvari novo abstraktno sintaksno drevo z dodanimi atributi abstraktne
+		 * Ustvari novo abstraktno sintaksno drevo z dodanimi atribuObjectti abstraktne
 		 * sintakse.
 		 * 
 		 * @param attrAST Abstraktno sintaksno drevo z dodanimi atributi abstraktne
@@ -73,8 +73,84 @@ public class Abstr {
 	public static AttrAST constructAST(SynAn synAn) {
 		final HashMap<AST.Node, Report.Locatable> attrLoc = new HashMap<AST.Node, Report.Locatable>();
 		final AST.Node ast = synAn.parse(attrLoc);
-		return new AttrAST(new AST.AttrAST(ast), Collections.unmodifiableMap(attrLoc));
+        // Base abstract tree
+        final AttrAST abstrAST = new AttrAST(new AST.AttrAST(ast), Collections.unmodifiableMap(attrLoc));
+        // Optimize constants
+//        final AttrAST optimizedAST = new Optimizer(abstrAST).optimize();
+		return abstrAST;
 	}
+
+    // Automatic calculate constats BinExpr (10 + 5) -> AtomExpr -> 15
+    private static class Optimizer {
+        private final AttrAST attrAST;
+
+        public Optimizer(final AttrAST attrAST) { this.attrAST = attrAST; }
+
+        public AttrAST optimize() {
+            // Create new AST witj folded constants
+            AST.Node optimizedAST = foldConstants(attrAST.ast);
+            return new AttrAST(new AST.AttrAST(optimizedAST), attrAST.attrLoc);
+        }
+
+        private AST.Node foldConstants(AST.Node ast){
+            return ast.accept(new FoldingVisitor(), null);
+        }
+
+        private class FoldingVisitor implements AST.FullVisitor<AST.Node, Void> {
+            @SuppressWarnings({ "doclint:missing" })
+            public FoldingVisitor() {
+            }
+
+            // Woud need to rebuild whole tree!!!
+
+            @Override
+            public AST.Node visit(AST.BinExpr binExpr, Void arg) {
+                // Recursively fold operands first
+                AST.Expr fstFolded = (AST.Expr) binExpr.fstExpr.accept(this, arg);
+                AST.Expr sndFolded = (AST.Expr) binExpr.sndExpr.accept(this, arg);
+
+                // If first and second expr is AtomExpr - INTCONST, CHARCONST?
+                // Calculate and reaplce BinExpr with AtomExpr??
+
+                if (isConstValue(fstFolded) && isConstValue(sndFolded)) {
+                    int fstConst = getConstValue(fstFolded);
+                    int sndConst = getConstValue(sndFolded);
+                    String constVal = String.valueOf(calculateValue(binExpr.oper, fstConst, sndConst));
+
+                    AST.AtomExpr foldedExpr = new AST.AtomExpr(AST.AtomExpr.Type.INTCONST, constVal);
+                    return foldedExpr;
+                }
+
+                // Return original BinExpr with folded operands (fst, snd)
+                return new AST.BinExpr(binExpr.oper, fstFolded, sndFolded);
+            }
+
+            private boolean isConstValue(AST.Expr expr) {
+                return expr instanceof AST.AtomExpr atomExpr && atomExpr.type == AST.AtomExpr.Type.INTCONST;
+            }
+            private Integer getConstValue(AST.Expr expr) {
+                AST.AtomExpr atomExpr = (AST.AtomExpr)expr;
+                return Integer.parseInt(atomExpr.value);
+            }
+            private Integer calculateValue(AST.BinExpr.Oper oper, int first, int second) {
+                return switch(oper) {
+                    case OR -> (first != 0 || second != 0) ? 1 : 0;  // Convert boolean to int
+                    case AND -> (first != 0 && second != 0) ? 1 : 0; // Convert boolean to int
+                    case EQU -> (first == second) ? 1 : 0;           // Convert boolean to int
+                    case NEQ -> (first != second) ? 1 : 0;
+                    case GTH -> (first > second) ? 1 : 0;
+                    case LTH -> (first < second) ? 1 : 0;
+                    case GEQ -> (first >= second) ? 1 : 0;
+                    case LEQ -> (first <= second) ? 1 : 0;
+                    case ADD -> first + second;
+                    case SUB -> first - second;
+                    case MUL -> first * second;
+                    case DIV -> first / second;
+                    case MOD -> first % second;
+                };
+            }
+        }
+    }
 
 	// --- ZAGON ---
 
@@ -94,7 +170,7 @@ public class Abstr {
 
 			try (final SynAn synAn = new SynAn(cmdLineArgs[0])) {
 				// abstraktna sintaksa:
-				final Abstr.AttrAST abstrAttrAST = Abstr.constructAST(synAn);
+				final AttrAST abstrAttrAST = Abstr.constructAST(synAn);
 
 				(new AST.Logger(abstrAttrAST)).log();
 			}

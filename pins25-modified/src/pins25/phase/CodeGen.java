@@ -116,7 +116,7 @@ public class CodeGen {
 	 * @return Abstraktno sintaksno drevo z dodanimi atributi izracuna pomnilniske
 	 *         predstavitve.
 	 */
-	public static AttrAST generate(final Memory.AttrAST memoryAttrAST) {
+public static AttrAST generate(final Memory.AttrAST memoryAttrAST) {
 		AttrAST attrAST = new AttrAST(memoryAttrAST, new HashMap<AST.Node, List<PDM.CodeInstr>>(),
 				new HashMap<AST.Node, List<PDM.DataInstr>>());
 		(new CodeGenerator(attrAST)).generate();
@@ -967,12 +967,18 @@ public class CodeGen {
                             dataSize += instr.size();
 						}
 					}
-					System.out.println();
 
-                    System.out.println("Instruction segment size: " + codeSize + "B");
-                    System.out.println("Data segment size: " + dataSize + "B");
-                    System.out.println("Total size: " + (codeSize + dataSize) + "B");
+					System.out.println();
+                    System.out.println("Static memory layout analysis:");
+                    System.out.println("Instruction segment size: " + codeSize + " bytes");
+                    System.out.println("Data segment size: " + dataSize + " bytes");
+                    System.out.println("Total size: " + (codeSize + dataSize) + " bytes");
 				}
+
+
+                // Stack requirements analysis
+                System.out.println();
+                Memory.analyseStack(memoryAttrAST);
 			}
 
 			// Upajmo, da kdaj pridemo to te tocke.

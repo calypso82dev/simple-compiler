@@ -647,7 +647,7 @@ public class SynAn implements AutoCloseable {
 		Token token = lexAn.peekToken();
 		AST.Expr expr = null;
 		AST.Expr exprR;
-		AST.BinExpr binExpr;
+		AST.Expr binExpr;
 
 		// additop -> add | sub
 		switch (token.symbol())
@@ -657,6 +657,8 @@ public class SynAn implements AutoCloseable {
 				check(Token.Symbol.ADD); // consume operator
 				exprR = parseMultiExpr();
 				binExpr = new AST.BinExpr(AST.BinExpr.Oper.ADD, exprL, exprR);
+                // Fold expresion if L and R is const
+                binExpr = foldBinExpr(exprL, exprR, (AST.BinExpr)binExpr);
 				this.attrLoc.put(binExpr, getExprLocation(exprL, exprR));
 				expr = parseAdditExpr2(binExpr);
 				break;
@@ -665,6 +667,8 @@ public class SynAn implements AutoCloseable {
 				check(Token.Symbol.SUB); // consume operator
 				exprR = parseMultiExpr();
 				binExpr = new AST.BinExpr(AST.BinExpr.Oper.SUB, exprL, exprR);
+                // Fold expresion if L and R is const
+                binExpr = foldBinExpr(exprL, exprR, (AST.BinExpr)binExpr);
 				this.attrLoc.put(binExpr, getExprLocation(exprL, exprR));
 				expr = parseAdditExpr2(binExpr);
 				break;
@@ -708,11 +712,11 @@ public class SynAn implements AutoCloseable {
 
 	private AST.Expr parseMultiExpr2(AST.Expr exprL)
 	{
-		// multi_expr2 -> multiop pre_expr multi_expr2 | ε
+		// multi_expr2 -> multiop pre_expr multi_expr2 |    ε
 		Token token = lexAn.peekToken();
 		AST.Expr expr = null;
 		AST.Expr exprR;
-		AST.BinExpr binExpr;
+		AST.Expr binExpr;
 
 		// multiop -> mul | div | mod
 		switch (token.symbol())
@@ -722,6 +726,8 @@ public class SynAn implements AutoCloseable {
 				check(Token.Symbol.MUL); // consume operator
 				exprR = parsePostExpr();
 				binExpr = new AST.BinExpr(AST.BinExpr.Oper.MUL, exprL, exprR);
+                // Fold expresion if L and R is const
+                binExpr = foldBinExpr(exprL, exprR, (AST.BinExpr)binExpr);
 				this.attrLoc.put(binExpr, getExprLocation(exprL, exprR));
 				expr = parseMultiExpr2(binExpr);
 				break;
@@ -730,6 +736,8 @@ public class SynAn implements AutoCloseable {
 				check(Token.Symbol.DIV); // consume operator
 				exprR = parsePostExpr();
 				binExpr = new AST.BinExpr(AST.BinExpr.Oper.DIV, exprL, exprR);
+                // Fold expresion if L and R is const
+                binExpr = foldBinExpr(exprL, exprR, (AST.BinExpr)binExpr);
 				this.attrLoc.put(binExpr, getExprLocation(exprL, exprR));
 				expr = parseMultiExpr2(binExpr);
 				break;
@@ -1247,6 +1255,48 @@ public class SynAn implements AutoCloseable {
 		}
 		return atomExpr;
 	}
+
+    // Folding logic
+    private AST.Expr foldBinExpr(AST.Expr left, AST.Expr right, AST.BinExpr original) {
+        // If first and second expr is AtomExpr - INTCONST, CHARCONST?
+        // Calculate and reaplce BinExpr with AtomExpr??
+
+        if (isConstValue(left) && isConstValue(right)) {
+            int fstConst = getConstValue(left);
+            int sndConst = getConstValue(right);
+            String constVal = String.valueOf(calculateValue(original.oper, fstConst, sndConst));
+
+            return new AST.AtomExpr(AST.AtomExpr.Type.INTCONST, constVal);
+        }
+
+        // Return original BinExpr
+        return original;
+    }
+
+    private boolean isConstValue(AST.Expr expr) {
+        return expr instanceof AST.AtomExpr atomExpr && atomExpr.type == AST.AtomExpr.Type.INTCONST;
+    }
+    private Integer getConstValue(AST.Expr expr) {
+        AST.AtomExpr atomExpr = (AST.AtomExpr)expr;
+        return Integer.parseInt(atomExpr.value);
+    }
+    private Integer calculateValue(AST.BinExpr.Oper oper, int first, int second) {
+        return switch(oper) {
+            case OR -> (first != 0 || second != 0) ? 1 : 0;  // Convert boolean to int
+            case AND -> (first != 0 && second != 0) ? 1 : 0; // Convert boolean to int
+            case EQU -> (first == second) ? 1 : 0;           // Convert boolean to int
+            case NEQ -> (first != second) ? 1 : 0;
+            case GTH -> (first > second) ? 1 : 0;
+            case LTH -> (first < second) ? 1 : 0;
+            case GEQ -> (first >= second) ? 1 : 0;
+            case LEQ -> (first <= second) ? 1 : 0;
+            case ADD -> first + second;
+            case SUB -> first - second;
+            case MUL -> first * second;
+            case DIV -> first / second;
+            case MOD -> first % second;
+        };
+    }
 
 	// --- ZAGON ---
 
