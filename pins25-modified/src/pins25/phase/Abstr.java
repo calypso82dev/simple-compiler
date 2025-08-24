@@ -75,79 +75,165 @@ public class Abstr {
 		final AST.Node ast = synAn.parse(attrLoc);
         // Base abstract tree
         final AttrAST abstrAST = new AttrAST(new AST.AttrAST(ast), Collections.unmodifiableMap(attrLoc));
-        // Optimize constants
-//        final AttrAST optimizedAST = new Optimizer(abstrAST).optimize();
 		return abstrAST;
 	}
+    public static void analyzeAST(Abstr.AttrAST attrAST) {
+        // Pass abstract tree
+        ASTAnalyzer astAnalyzer = new ASTAnalyzer(attrAST);
+        astAnalyzer.analyze();
+    }
 
-    // Automatic calculate constats BinExpr (10 + 5) -> AtomExpr -> 15
-    private static class Optimizer {
+
+    private static class ASTAnalyzer {
         private final AttrAST attrAST;
 
-        public Optimizer(final AttrAST attrAST) { this.attrAST = attrAST; }
+        public ASTAnalyzer(final AttrAST attrAST) { this.attrAST = attrAST; }
 
-        public AttrAST optimize() {
-            // Create new AST witj folded constants
-            AST.Node optimizedAST = foldConstants(attrAST.ast);
-            return new AttrAST(new AST.AttrAST(optimizedAST), attrAST.attrLoc);
+        public void analyze() {
+            ASTAnalyzerVisitor analyzerVisitor = new ASTAnalyzerVisitor();
+            System.out.println("Running AST Analysis...");
+            Map<Class<? extends AST.Node>, Integer> nodeCount = analyzerVisitor.countNodes();
+
+            int totalNodes = 0;
+            // Print nodes
+            for (Map.Entry<Class<? extends AST.Node>, Integer> entry : nodeCount.entrySet()) {
+                System.out.println(entry.getKey().getSimpleName() + " -> " + entry.getValue());
+                totalNodes += entry.getValue();
+            }
+            System.out.println("All nodes: " + totalNodes);
+
+
         }
 
-        private AST.Node foldConstants(AST.Node ast){
-            return ast.accept(new FoldingVisitor(), null);
-        }
-
-        private class FoldingVisitor implements AST.FullVisitor<AST.Node, Void> {
+        private class ASTAnalyzerVisitor implements AST.FullVisitor<Void, Void> {
             @SuppressWarnings({ "doclint:missing" })
-            public FoldingVisitor() {
+            public ASTAnalyzerVisitor() {
             }
 
-            // Woud need to rebuild whole tree!!!
+            private final Map<Class<? extends AST.Node>, Integer> nodeCount = new HashMap<>();
+
+            private Map<Class<? extends AST.Node>, Integer> countNodes() {
+                // Count Nodes of ast
+                attrAST.ast.accept(this, null);
+                return nodeCount;
+            }
+
+            private void count(AST.Node node) {
+                int val = nodeCount.getOrDefault(node.getClass(), 0);
+                nodeCount.put(node.getClass(), val + 1);
+            }
+
+            /* Definitions */
+            @Override
+            public Void visit(AST.FunDef funDef, Void arg) {
+                count(funDef);
+                // visit parameters
+                for (AST.ParDef par : funDef.pars) {
+                    par.accept(this, arg);
+                }
+                // visit statements
+                for (AST.Stmt stmt : funDef.stmts) {
+                    stmt.accept(this, arg);
+                }
+                return null;
+            }
+            @Override
+            public Void visit(AST.ParDef parDef, Void arg) {
+                count(parDef); // leaf node, nothing nested
+                return null;
+            }
 
             @Override
-            public AST.Node visit(AST.BinExpr binExpr, Void arg) {
-                // Recursively fold operands first
-                AST.Expr fstFolded = (AST.Expr) binExpr.fstExpr.accept(this, arg);
-                AST.Expr sndFolded = (AST.Expr) binExpr.sndExpr.accept(this, arg);
-
-                // If first and second expr is AtomExpr - INTCONST, CHARCONST?
-                // Calculate and reaplce BinExpr with AtomExpr??
-
-                if (isConstValue(fstFolded) && isConstValue(sndFolded)) {
-                    int fstConst = getConstValue(fstFolded);
-                    int sndConst = getConstValue(sndFolded);
-                    String constVal = String.valueOf(calculateValue(binExpr.oper, fstConst, sndConst));
-
-                    AST.AtomExpr foldedExpr = new AST.AtomExpr(AST.AtomExpr.Type.INTCONST, constVal);
-                    return foldedExpr;
+            public Void visit(AST.VarDef varDef, Void arg) {
+                count(varDef);
+                for (AST.Init init : varDef.inits) {
+                    init.accept(this, arg);
                 }
-
-                // Return original BinExpr with folded operands (fst, snd)
-                return new AST.BinExpr(binExpr.oper, fstFolded, sndFolded);
+                return null;
             }
 
-            private boolean isConstValue(AST.Expr expr) {
-                return expr instanceof AST.AtomExpr atomExpr && atomExpr.type == AST.AtomExpr.Type.INTCONST;
+            @Override
+            public Void visit(AST.Init init, Void arg) {
+                count(init);
+                if (init.num != null) init.num.accept(this, arg);
+                if (init.value != null) init.value.accept(this, arg);
+                return null;
             }
-            private Integer getConstValue(AST.Expr expr) {
-                AST.AtomExpr atomExpr = (AST.AtomExpr)expr;
-                return Integer.parseInt(atomExpr.value);
+
+            /* Statements */
+            @Override
+            public Void visit(AST.ExprStmt stmt, Void arg) {
+                count(stmt);
+                stmt.expr.accept(this, arg);
+                return null;
             }
-            private Integer calculateValue(AST.BinExpr.Oper oper, int first, int second) {
-                return switch(oper) {
-                    case OR -> (first != 0 || second != 0) ? 1 : 0;  // Convert boolean to int
-                    case AND -> (first != 0 && second != 0) ? 1 : 0; // Convert boolean to int
-                    case EQU -> (first == second) ? 1 : 0;           // Convert boolean to int
-                    case NEQ -> (first != second) ? 1 : 0;
-                    case GTH -> (first > second) ? 1 : 0;
-                    case LTH -> (first < second) ? 1 : 0;
-                    case GEQ -> (first >= second) ? 1 : 0;
-                    case LEQ -> (first <= second) ? 1 : 0;
-                    case ADD -> first + second;
-                    case SUB -> first - second;
-                    case MUL -> first * second;
-                    case DIV -> first / second;
-                    case MOD -> first % second;
-                };
+
+            @Override
+            public Void visit(AST.AssignStmt stmt, Void arg) {
+                count(stmt);
+                stmt.dstExpr.accept(this, arg);
+                stmt.srcExpr.accept(this, arg);
+                return null;
+            }
+
+            @Override
+            public Void visit(AST.IfStmt stmt, Void arg) {
+                count(stmt);
+                stmt.cond.accept(this, arg);
+                for (AST.Stmt s : stmt.thenStmts) s.accept(this, arg);
+                for (AST.Stmt s : stmt.elseStmts) s.accept(this, arg);
+                return null;
+            }
+
+            @Override
+            public Void visit(AST.WhileStmt stmt, Void arg) {
+                count(stmt);
+                stmt.cond.accept(this, arg);
+                for (AST.Stmt s : stmt.stmts) s.accept(this, arg);
+                return null;
+            }
+
+            @Override
+            public Void visit(AST.LetStmt stmt, Void arg) {
+                count(stmt);
+                for (AST.MainDef def : stmt.defs) def.accept(this, arg);
+                for (AST.Stmt s : stmt.stmts) s.accept(this, arg);
+                return null;
+            }
+
+            /* Expressions */
+            @Override
+            public Void visit(AST.AtomExpr expr, Void arg) {
+                count(expr); // leaf node, nothing nested
+                return null;
+            }
+
+            @Override
+            public Void visit(AST.UnExpr expr, Void arg) {
+                count(expr);
+                expr.expr.accept(this, arg);
+                return null;
+            }
+
+            @Override
+            public Void visit(AST.BinExpr expr, Void arg) {
+                count(expr);
+                expr.fstExpr.accept(this, arg);
+                expr.sndExpr.accept(this, arg);
+                return null;
+            }
+
+            @Override
+            public Void visit(AST.VarExpr expr, Void arg) {
+                count(expr); // leaf node, nothing nested
+                return null;
+            }
+
+            @Override
+            public Void visit(AST.CallExpr expr, Void arg) {
+                count(expr);
+                for (AST.Expr a : expr.args) a.accept(this, arg);
+                return null;
             }
         }
     }
@@ -173,7 +259,12 @@ public class Abstr {
 				final AttrAST abstrAttrAST = Abstr.constructAST(synAn);
 
 				(new AST.Logger(abstrAttrAST)).log();
-			}
+
+                // Run ASTAnlysis
+                System.out.println();
+                Abstr.analyzeAST(abstrAttrAST);
+            }
+
 
 			// Upajmo, da kdaj pridemo to te tocke.
 			// A zavedajmo se sledecega:
