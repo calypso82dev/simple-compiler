@@ -943,6 +943,9 @@ public class CodeGen {
 
 				(new AST.Logger(codegenAttrAST)).log();
 				{
+                    int codeSize = 0;
+                    int dataSize = 0;
+
 					int addr = 0;
 					final List<PDM.CodeInstr> codeSegment = (new CodeSegmentGenerator(codegenAttrAST)).codeSegment();
 					{
@@ -951,6 +954,7 @@ public class CodeGen {
 							System.out.printf("%8d [%s] %s\n", addr, instr.size(),
 									(instr instanceof PDM.LABEL ? "" : "  ") + instr.toString());
 							addr += instr.size();
+                            codeSize += instr.size();
 						}
 					}
 					final List<PDM.DataInstr> dataSegment = (new DataSegmentGenerator(codegenAttrAST)).dataSegment();
@@ -960,9 +964,14 @@ public class CodeGen {
 							System.out.printf("%8d [%s] %s\n", addr, (instr instanceof PDM.SIZE) ? " " : instr.size(),
 									(instr instanceof PDM.LABEL ? "" : "  ") + instr.toString());
 							addr += instr.size();
+                            dataSize += instr.size();
 						}
 					}
 					System.out.println();
+
+                    System.out.println("Instruction segment size: " + codeSize + "B");
+                    System.out.println("Data segment size: " + dataSize + "B");
+                    System.out.println("Total size: " + (codeSize + dataSize) + "B");
 				}
 			}
 

@@ -166,6 +166,7 @@ public class Memory {
 		return attrAST;
 	}
 
+
 	/**
 	 * Organizator pomnilniske predstavitve.
 	 */
@@ -179,7 +180,7 @@ public class Memory {
 
 		/**
 		 * Ustvari nov organizator pomnilniske predstavitve.
-		 * 
+		 *
 		 * @param attrAST Abstraktno sintaksno drevo z dodanimi atributi izracuna
 		 *                pomnilniske predstavitve.
 		 */
@@ -195,10 +196,26 @@ public class Memory {
 		 */
 		public AttrAST organize() {
 			attrAST.ast.accept(new MemoryVisitor(), null);
+
+            // Add stack analysis (memory calculation)
+            calculateStackRequirements();
+
 			return new AttrAST(attrAST, Collections.unmodifiableMap(attrAST.attrFrame),
 					Collections.unmodifiableMap(attrAST.attrParAccess),
 					Collections.unmodifiableMap(attrAST.attrVarAccess));
 		}
+        private void calculateStackRequirements() {
+            StackAnalysisVisitor visitor = new StackAnalysisVisitor();
+            int maxSize = 0;
+            for (AST.FunDef funDef : attrAST.attrFrame.keySet()) {
+                // Start from main
+                if (Objects.equals(funDef.name, "main")) {
+                    int maxFunSize = visitor.analyzeFunction(funDef);
+                    maxSize = Math.max(maxFunSize, maxSize);
+                }
+            }
+            System.out.println("Max memory stack required: " + maxSize);
+        }
 
 		// Context class to pass information between visitor methods
 		private static class FrameContext {
@@ -427,8 +444,152 @@ public class Memory {
 				}
 				return totalSize;
 			}
-		}
+        }
+
+        // Goal -> Find callExpr and analyze it`s called function
+        class StackAnalysisVisitor implements AST.Visitor<Integer, Integer> {
+
+            @SuppressWarnings({ "doclint:missing" })
+            public StackAnalysisVisitor() {
+            }
+
+            private final Map<AST.FunDef, Integer> recursionDepth = new HashMap<>();
+            private static final int MAX_RECURSION = 100;
+
+            // Calculate stack memory required
+            // Invoked by visited callExpr
+//            int analyzeFunction(AST.FunDef funDef) {
+//                Mem.Frame funFrame = attrAST.attrFrame.get(funDef);
+//                int localSize = funFrame.parsSize + funFrame.varsSize;
+//
+//                // Process statment callExpr
+//                int maxNestedSize = 0;
+//                for (AST.Stmt stmt : funDef.stmts) {
+//                    int stmtSize = analyzeStatement(stmt);
+//                    maxNestedSize = Math.max(maxNestedSize, stmtSize);
+//                }
+//
+//                return localSize + maxNestedSize;
+//            }
+            int analyzeFunction(AST.FunDef funDef) {
+                Mem.Frame funFrame = attrAST.attrFrame.get(funDef);
+                int localSize = funFrame.parsSize + funFrame.varsSize;
+
+                // Check current recursion depth
+                int currentDepth = recursionDepth.getOrDefault(funDef, 0);
+                if (currentDepth >= MAX_RECURSION) {
+                    System.out.println("Max recursion depth reached in function: " + funDef.name);
+                    return MAX_RECURSION * localSize; // Return estimate for deep recursion
+
+                }
+
+                // Increment depth
+                recursionDepth.put(funDef, currentDepth + 1);
+
+                try {
+                    int maxNestedSize = 0;
+                    for (AST.Stmt stmt : funDef.stmts) {
+                        int stmtSize = analyzeStatement(stmt);
+                        maxNestedSize = Math.max(maxNestedSize, stmtSize);
+                    }
+
+                    return localSize + maxNestedSize;
+                } finally {
+                    // Decrement depth when leaving function
+                    recursionDepth.put(funDef, currentDepth);
+                }
+            }
+
+            int analyzeStatement(AST.Stmt stmt) {
+                return stmt.accept(this, 0);
+            }
+
+            @Override
+            public Integer visit(AST.CallExpr callExpr, Integer arg) {
+                AST.FunDef calledFun = (AST.FunDef) attrAST.attrDef.get(callExpr);
+
+                // Analyze arguments first (they execute before the call)
+                int maxArgSize = 0;
+                for (AST.Expr argExpr : callExpr.args) {
+                    int argSize = argExpr.accept(this, arg);
+                    maxArgSize = Math.max(maxArgSize, argSize);
+                }
+
+                // Then analyze the called function
+                int calledFuncSize = analyzeFunction(calledFun);
+
+                // Return the maximum of argument evaluation and function call
+                return Math.max(maxArgSize, calledFuncSize);
+            }
+
+            @Override
+            public Integer visit(AST.ExprStmt exprStmt, Integer arg) {
+                return exprStmt.expr.accept(this, arg);
+            }
+
+            @Override
+            public Integer visit(AST.AssignStmt assignStmt, Integer arg) {
+                int srcSize = assignStmt.srcExpr.accept(this, arg);
+                int dstSize = assignStmt.dstExpr.accept(this, arg);
+                return Math.max(srcSize, dstSize);
+            }
+
+            @Override
+            public Integer visit(AST.IfStmt ifStmt, Integer arg) {
+                int condSize = ifStmt.cond.accept(this, arg);
+                int maxStmtSize = 0;
+                for (AST.Stmt stmt : ifStmt.thenStmts) {
+                    maxStmtSize = Math.max(maxStmtSize, stmt.accept(this, arg));
+                }
+                for (AST.Stmt stmt : ifStmt.elseStmts) {
+                    maxStmtSize = Math.max(maxStmtSize, stmt.accept(this, arg));
+                }
+                return Math.max(condSize, maxStmtSize);
+            }
+
+            @Override
+            public Integer visit(AST.WhileStmt whileStmt, Integer arg) {
+                int condSize = whileStmt.cond.accept(this, arg);
+                int maxStmtSize = 0;
+                for (AST.Stmt stmt : whileStmt.stmts) {
+                    maxStmtSize = Math.max(maxStmtSize, stmt.accept(this, arg));
+                }
+                return Math.max(condSize, maxStmtSize);
+            }
+
+            @Override
+            public Integer visit(AST.LetStmt letStmt, Integer arg) {
+                int maxStmtSize = 0;
+                for (AST.Stmt stmt : letStmt.stmts) {
+                    maxStmtSize = Math.max(maxStmtSize, stmt.accept(this, arg));
+                }
+                return maxStmtSize;
+            }
+
+            @Override
+            public Integer visit(AST.BinExpr binExpr, Integer arg) {
+                int fstSize = binExpr.fstExpr.accept(this, arg);
+                int sndSize = binExpr.sndExpr.accept(this, arg);
+                return Math.max(fstSize, sndSize);
+            }
+
+            @Override
+            public Integer visit(AST.UnExpr unExpr, Integer arg) {
+                return unExpr.expr.accept(this, arg);
+            }
+
+            @Override
+            public Integer visit(AST.VarExpr varExpr, Integer arg) {
+                return 0; // Variable access doesn't require stack for calls
+            }
+
+            @Override
+            public Integer visit(AST.AtomExpr atomExpr, Integer arg) {
+                return 0; // Constants don't require stack for calls
+            }
+        }
 	}
+
 
 	/**
 	 * Izracuna vrednost celostevilske konstante.

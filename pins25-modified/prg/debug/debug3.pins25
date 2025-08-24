@@ -17,7 +17,7 @@ fun foo(x) =
     x
 
 fun main() =
-    putint(foo(5)),
+    foo(5),
     exit(0)
 
 

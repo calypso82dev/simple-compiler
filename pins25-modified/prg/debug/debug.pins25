@@ -1,10 +1,25 @@
+fun exit(exitcode)
+fun putint(intvalue)
+fun putstr(straddr)
 
+var i = 5 * 2
 
+fun foo(x) =
+    let
+        var i = 12
+        var b = 2
+        fun foo2() = i = 25, foo2(), 0
+        //fun foo2() = i + 5
+    in
+        //x = foo2()
+        foo2(),
+        x = i
+    end,
+    x
 
 fun main() =
-    putint(--15),
-    putint(-+15^^^^),
-    putint(++15),
-    putint(!x^),
-    putint(-2 * 4),
-    0
+    foo(5),
+    exit(0)
+
+
+
