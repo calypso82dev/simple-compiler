@@ -65,8 +65,12 @@ public record Token(Report.Location location, Symbol symbol, String lexeme) impl
 		GEQ,
 		/** Simbol {@code <=}. */
 		LEQ,
-		/** Simbol {@code +}. */
-		ADD,
+        /** Simbol {@code +}. */
+        ADD,
+        /** Simbol {@code +}. */
+        INC,
+        /** Simbol {@code +}. */
+        DEC,
 		/** Simbol {@code -}. */
 		SUB,
 		/** Simbol {@code *}. */

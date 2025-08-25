@@ -331,6 +331,24 @@ public class LexAn implements AutoCloseable {
 
         Token.Symbol symbol = switch (firstChar) {
             // 1. Single/Double operators
+            case '+' -> {
+                // Could be ADD or INC
+                if (buffChar == '+') {
+                    lexeme.append((char) buffChar);
+                    nextChar();
+                    yield Token.Symbol.INC;
+                }
+                yield Token.Symbol.ADD;
+            }
+            case '-' -> {
+                // Could be SUB or DEC
+                if (buffChar == '-') {
+                    lexeme.append((char) buffChar);
+                    nextChar();
+                    yield Token.Symbol.DEC;
+                }
+                yield Token.Symbol.SUB;
+            }
             case '=' -> {
                 // Could be ASSIGN or EQU
                 if (buffChar == '=') {
@@ -392,8 +410,6 @@ public class LexAn implements AutoCloseable {
             }
             // 3. Single operators
             case ',' -> Token.Symbol.COMMA;
-            case '+' -> Token.Symbol.ADD;
-            case '-' -> Token.Symbol.SUB;
             case '*' -> Token.Symbol.MUL;
             case '/' -> Token.Symbol.DIV;
             case '%' -> Token.Symbol.MOD;

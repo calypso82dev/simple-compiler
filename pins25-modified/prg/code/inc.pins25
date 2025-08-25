@@ -1,0 +1,11 @@
+fun exit(exitcode)
+fun putint(intvalue)
+fun putstr(straddr)
+
+var i = 2
+
+fun main() =
+    putint(i++),
+    //1++,
+    putint(i),
+    exit(0)

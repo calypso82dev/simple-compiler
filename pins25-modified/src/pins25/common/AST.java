@@ -566,7 +566,13 @@ public class AST {
 			MEMADDR,
 			/** Dereferenciranje (postfiksni ^). */
 			VALUEAT,
+            /** Increment (postfiksni ali prefixni). */
+            INC,
+            /** Decrement (postfiksni ali prefizni). */
+            DEC,
 		}
+        // Flag for controlling INC, DEC
+        public boolean isPostfix = true;
 
 		/** Enomestni operator. */
 		public final Oper oper;
@@ -584,7 +590,13 @@ public class AST {
 			super();
 			this.oper = oper;
 			this.expr = expr;
-		}
+        }
+        public UnExpr(final Oper oper, final Expr expr, boolean isPostfix) {
+            super();
+            this.oper = oper;
+            this.expr = expr;
+            this.isPostfix = isPostfix;
+        }
 
 		@Override
 		public <Result, Argument> Result accept(Visitor<Result, Argument> visitor, Argument arg) {

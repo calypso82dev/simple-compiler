@@ -503,6 +503,33 @@ public static AttrAST generate(final Memory.AttrAST memoryAttrAST) {
                             codeInstr.add(new PDM.LOAD(loc));
                         }
 					}
+                    case INC, DEC -> {
+                        PDM.OPER.Oper operator =
+                                unExpr.oper == AST.UnExpr.Oper.INC ?
+                                PDM.OPER.Oper.ADD :
+                                PDM.OPER.Oper.SUB;
+
+                        // Expr is VarExpr (checked in semantic)
+                        List<PDM.CodeInstr> addrInstr = generateAddress((AST.VarExpr) unExpr.expr, frame);
+
+                        if (!unExpr.isPostfix) {
+                            // If Prefix -> Increment value and LOAD
+                            // increment
+                            codeInstr.addAll(generateIncDecInstr(unExpr, addrInstr));
+                            // LOAD value
+                            codeInstr.addAll(addrInstr);
+                            codeInstr.add(new PDM.LOAD(loc));
+                        } else {
+                            // If Postfix -> LOAD value and Increment
+                            // LOAD value
+                            codeInstr.addAll(addrInstr);
+                            codeInstr.add(new PDM.LOAD(loc));
+                            // increment
+                            codeInstr.addAll(generateIncDecInstr(unExpr, addrInstr));
+                        }
+
+
+                    }
 					default -> {
 						// Generate code for operand
 						List<PDM.CodeInstr> exprCode = unExpr.expr.accept(this, frame);
@@ -518,8 +545,28 @@ public static AttrAST generate(final Memory.AttrAST memoryAttrAST) {
 					}
 				}
 
-				return codeInstr;
+                return codeInstr;
 			}
+            private List<PDM.CodeInstr> generateIncDecInstr(AST.UnExpr unExpr, List<PDM.CodeInstr> addrInstr) {
+                List<PDM.CodeInstr> codeInstr = new ArrayList<>();
+                Report.Locatable loc = attrAST.attrLoc.get(unExpr);
+
+                PDM.OPER.Oper operator =
+                        unExpr.oper == AST.UnExpr.Oper.INC ?
+                        PDM.OPER.Oper.ADD :
+                        PDM.OPER.Oper.SUB;
+
+                // If Prefix -> Increment value and LOAD
+                // increment
+                codeInstr.addAll(addrInstr); // Address for loding value
+                codeInstr.add(new PDM.LOAD(loc)); // Load value
+                codeInstr.add(new PDM.PUSH(1, loc));
+                codeInstr.add(new PDM.OPER(operator, loc)); // ADD or SUB loaded value
+                codeInstr.addAll(addrInstr); // Address for saving value back
+                codeInstr.add(new PDM.SAVE(loc)); // Save new value back on address
+
+                return codeInstr;
+            }
 
 			@Override
 			public List<PDM.CodeInstr> visit(AST.BinExpr binExpr, Mem.Frame frame) {
@@ -605,7 +652,6 @@ public static AttrAST generate(final Memory.AttrAST memoryAttrAST) {
 			public List<PDM.CodeInstr> visit(AST.VarExpr varExpr, Mem.Frame frame) {
 				List<PDM.CodeInstr> codeInstr = new ArrayList<>();
 				Report.Locatable loc = attrAST.attrLoc.get(varExpr);
-
 
                 // Generate address calculation
                 codeInstr.addAll(generateAddress(varExpr, frame));

@@ -705,8 +705,8 @@ public class SynAn implements AutoCloseable {
 	private AST.Expr parseMultiExpr()
 	{
 		// multi_expr -> pre_expr multi_expr2
-//		AST.Expr exprL = parsePreExpr();
-		AST.Expr exprL = parsePostExpr(); // Process post expr first
+		AST.Expr exprL = parsePreExpr();
+//		AST.Expr exprL = parsePostExpr(); // 1. Switch priority of post, prefix
 		return parseMultiExpr2(exprL);
 	}
 
@@ -852,10 +852,36 @@ public class SynAn implements AutoCloseable {
 //				expr = parseMultiExpr2(unExpr);
                 expr = unExpr;
 				break;
+            case Token.Symbol.INC:
+                // Production: pre_expr -> ptr pre_expr
+                startLoc = check(Token.Symbol.INC); // consume operator
+                exprR = parsePreExpr(); // Recursievly process pre prefixes
+
+                // 1. Simple Binary expression for increment
+//                AST.BinExpr binIncExpr = createIncDecExpr(token, exprR, false);
+//                this.attrLoc.put(binIncExpr, new Report.Location(startLoc, getExprLocation(exprR)));
+                // 2. Complex - UnExpr
+                unExpr = new AST.UnExpr(AST.UnExpr.Oper.INC, exprR, false);
+                this.attrLoc.put(unExpr, new Report.Location(startLoc, getExprLocation(exprR)));
+                expr = unExpr;
+                break;
+            case Token.Symbol.DEC:
+                // Production: pre_expr -> ptr pre_expr
+                startLoc = check(Token.Symbol.DEC); // consume operator
+                exprR = parsePreExpr(); // Recursievly process pre prefixes
+
+                // 1. Simple - Binary expression for decrement
+//                AST.BinExpr binDecExpr = createIncDecExpr(token, exprR, false);
+//                this.attrLoc.put(binDecExpr, new Report.Location(startLoc, getExprLocation(exprR)));
+                // 2. Complex - UnExpr
+                unExpr = new AST.UnExpr(AST.UnExpr.Oper.DEC, exprR, false);
+                this.attrLoc.put(unExpr, new Report.Location(startLoc, getExprLocation(exprR)));
+                expr = unExpr;
+                break;
 			default:
 				// Production: pre_expr -> post_expr
-//				expr = parsePostExpr();
-				expr = parsePrimary();
+				expr = parsePostExpr();
+//				expr = parsePrimary(); // 2. Switch priority of post, prefix
 		}
 		return expr;
 	}
@@ -864,8 +890,8 @@ public class SynAn implements AutoCloseable {
 	private AST.Expr parsePostExpr()
 	{
 		// post_expr -> primary post_expr2
-//		AST.Expr exprL = parsePrimary();
-		AST.Expr exprL = parsePreExpr();
+		AST.Expr exprL = parsePrimary();
+//		AST.Expr exprL = parsePreExpr(); // 3. Switch priority of post, prefix
 		return parsePostExpr2(exprL);
 	}
 	private AST.Expr parsePostExpr2(AST.Expr exprL)
@@ -873,24 +899,45 @@ public class SynAn implements AutoCloseable {
 		// post_expr2 -> postfixop post_expr2 | ε
 		Token token = lexAn.peekToken();
 		AST.Expr expr = null;
+        Report.Locatable endLoc;
+        AST.UnExpr unExpr;
 
 		// postfixop -> ptr
 		switch (token.symbol())
 		{
 			case Token.Symbol.PTR:
 				// Production: post_expr2 -> ptr post_expr2
-				Token endLoc = check(Token.Symbol.PTR); // consume operator
+				endLoc = check(Token.Symbol.PTR); // consume operator
 
                 // Check for consecutive operators
                 if (lexAn.peekToken().symbol() == Token.Symbol.PTR) {
                     throw new Report.Error(lexAn.peekToken().location(),
                             "Syntax error: Consecutive postfix operators not allowed");
                 }
-				AST.UnExpr unExpr = new AST.UnExpr(AST.UnExpr.Oper.VALUEAT, exprL);
+				unExpr = new AST.UnExpr(AST.UnExpr.Oper.VALUEAT, exprL);
 				this.attrLoc.put(unExpr, new Report.Location(getExprLocation(exprL), endLoc));
 				expr = parsePostExpr2(unExpr); // Recursievly process post prefixes
 				break;
-
+            case Token.Symbol.INC:
+                endLoc = check(Token.Symbol.INC); // consume operator
+                // 1. Simple - Binary expression for increment
+//                AST.BinExpr binIncExpr = createIncDecExpr(token, exprL, true);
+//                this.attrLoc.put(binIncExpr, new Report.Location(getExprLocation(exprL), endLoc));
+                // 2. Complex - UnExpr
+                unExpr = new AST.UnExpr(AST.UnExpr.Oper.INC, exprL, true);
+                this.attrLoc.put(unExpr, new Report.Location(getExprLocation(exprL), endLoc));
+                expr = parsePostExpr2(unExpr); // Recursievly process post prefixes
+                break;
+            case Token.Symbol.DEC:
+                endLoc = check(Token.Symbol.DEC); // consume operator
+                // 1. Simple - Binary expression for decrement
+//                AST.BinExpr binDecExpr = createIncDecExpr(token, exprL, true);
+//                this.attrLoc.put(binDecExpr, new Report.Location(getExprLocation(exprL), endLoc));
+                // 2. Comples - unExpr
+                unExpr = new AST.UnExpr(AST.    UnExpr.Oper.DEC, exprL, true);
+                this.attrLoc.put(unExpr, new Report.Location(getExprLocation(exprL), endLoc));
+                expr = parsePostExpr2(unExpr); // Recursievly process post prefixes
+                break;
 
 			case Token.Symbol.MUL:
 			case Token.Symbol.DIV:
@@ -1015,7 +1062,9 @@ public class SynAn implements AutoCloseable {
 			case Token.Symbol.MOD:
 			case Token.Symbol.ADD:
 			case Token.Symbol.SUB:
-			case Token.Symbol.PTR:
+            case Token.Symbol.PTR:
+            case Token.Symbol.INC:
+            case Token.Symbol.DEC:
 			case Token.Symbol.EQU:
 			case Token.Symbol.NEQ:
 			case Token.Symbol.GTH:
@@ -1255,6 +1304,20 @@ public class SynAn implements AutoCloseable {
 		}
 		return atomExpr;
 	}
+
+    private AST.BinExpr createIncDecExpr(Token token, AST.Expr otherExpr, boolean isPostfix) {
+        AST.AtomExpr incExpr = new AST.AtomExpr(AST.AtomExpr.Type.INTCONST, "1");
+        if (isPostfix)
+            this.attrLoc.put(incExpr, new Report.Location(getExprLocation(otherExpr), token));
+        else
+            this.attrLoc.put(incExpr, new Report.Location(token, getExprLocation(otherExpr)));
+        // Binary expression for increment/Decrement
+        return switch (token.symbol()) {
+            case Token.Symbol.INC -> new AST.BinExpr(AST.BinExpr.Oper.ADD, otherExpr, incExpr);
+            case Token.Symbol.DEC -> new AST.BinExpr(AST.BinExpr.Oper.SUB, otherExpr, incExpr);
+            default -> throw new IllegalArgumentException("Type must be increment or decrement");
+        };
+    }
 
     // Folding logic
     private AST.Expr foldBinExpr(AST.Expr left, AST.Expr right, AST.BinExpr original) {

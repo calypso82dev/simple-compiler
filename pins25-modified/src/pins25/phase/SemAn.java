@@ -109,6 +109,7 @@ public class SemAn {
 		attrAST = new NameResolver(attrAST).resolve();
 		attrAST = new TypeResolver(attrAST).resolve();
 		attrAST = new LValResolver(attrAST).resolve();
+        (new OperatorResolver(attrAST)).resolve(); // Resolve inc,dec
 		return attrAST;
 	}
 
@@ -370,7 +371,36 @@ public class SemAn {
 		}
 
 	}
+    /**
+     * Preveranje operatorjev
+     */
+    private static class OperatorResolver {
+        private final AttrAST attrAST;
+        public OperatorResolver(final AttrAST attrAST) { this.attrAST = attrAST; }
 
+        public void resolve() {
+            attrAST.ast.accept(new OperatorResolverVisitor(), null);
+        }
+
+        private class OperatorResolverVisitor implements AST.FullVisitor<Void, Void> {
+            @SuppressWarnings({ "doclint:missing" })
+            public OperatorResolverVisitor() {
+            }
+
+            @Override
+            public Void visit(AST.UnExpr unExpr, Void arg) {
+                if (unExpr.oper == UnExpr.Oper.INC || unExpr.oper == UnExpr.Oper.DEC) {
+                    // Chck if expression if var
+                    // If not throw exception
+                    if (!(unExpr.expr instanceof AST.VarExpr)) {
+                        throw new Report.Error(attrAST.attrLoc.get(unExpr),
+                                "Increment/Decrement operators can be only used in combination with variable");
+                    }
+                }
+                return null;
+            }
+        }
+    }
 	/**
 	 * Preverjanje tipov.
 	 */

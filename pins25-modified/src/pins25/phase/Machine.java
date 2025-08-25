@@ -32,7 +32,7 @@ public class Machine {
 	public static boolean debugLabelsList = true;
 
 	/** Ali se opravi testni izpis dogajanja na skladu. */
-	public static boolean debugStack = true;
+	public static boolean debugStack = false;
 
 	/**
 	 * Izvajanje skladovnega stroja.
