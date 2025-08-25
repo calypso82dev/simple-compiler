@@ -262,7 +262,7 @@ public class Abstr {
 
                 // Run ASTAnlysis
                 System.out.println();
-//                Abstr.analyzeAST(abstrAttrAST);
+                Abstr.analyzeAST(abstrAttrAST);
             }
 
 

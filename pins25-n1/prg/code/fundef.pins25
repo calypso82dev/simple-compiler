@@ -5,7 +5,7 @@ fun putstr(straddr)
 fun add(a, b) = a + b
 
 
-fun main() =
+fun main() = 
     putstr("19 + 2 = \00"),
     putint(add(19, 2)),
     putstr("\n\00"),

@@ -1,0 +1,25 @@
+// Built-in functions
+fun exit(exitcode)
+fun putint(intvalue)
+fun putstr(straddr)
+
+// Simple array test
+fun simple_array_test() =
+    let
+        var arr = 1, 2, 3
+        var ptr = 0
+    in
+        putstr("Testing simple array...\n\00"),
+        ptr = ^arr,
+        putstr("Got pointer, trying to read first element...\n\00"),
+        putint(ptr^),
+        putstr("\n\00"),
+        putstr("Done with first element\n\00"),
+        0
+    end
+
+fun main() =
+    putstr("=== Simple Array Test ===\n\00"),
+    simple_array_test(),
+    putstr("=== Test Completed ===\n\00"),
+    exit(0)

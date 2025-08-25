@@ -167,9 +167,9 @@ public class CodeGen {
             // Stack tracking loop exit labels (while, until) for break stmts
             private Stack<String> loopExitLabels = new Stack<>();
 
-            private int labelCounter = 0;
+            private int jumpLabelCounter = 0;
             private String generateJumpLabel() {
-                return "L" + (labelCounter++);
+                return "L" + (jumpLabelCounter++);
             }
 
             private String generateStringLabel(AST.AtomExpr atomExpr) {
@@ -214,11 +214,11 @@ public class CodeGen {
 				PDM.LABEL funLabel = new PDM.LABEL(funName, loc);
 				codeInstr.add(funLabel);
 
-				// 2. Function body code (statements)
-				for (AST.Stmt stmt : funDef.stmts) {
-					List<PDM.CodeInstr> stmtCode = stmt.accept(this, funFrame);
-                    codeInstr.addAll(stmtCode);
-				}
+                // 2. Function body code (statements)
+                if (funDef.stmts.size() > 0) {
+                    List<PDM.CodeInstr> stmtsInstr = processStatements(funDef.stmts, funFrame);
+                    codeInstr.addAll(stmtsInstr);
+                }
 
 				// 3. Return instruction
                 // Result shoud be at current stack location
@@ -231,6 +231,39 @@ public class CodeGen {
 				attrAST.attrCode.put(funDef, codeInstr);
 				return codeInstr;
 			}
+            private List<PDM.CodeInstr> processStatements(AST.Nodes<AST.Stmt> stmts, Mem.Frame frame) {
+                List<PDM.CodeInstr> codeInstr = new ArrayList<>();
+
+                int stmtsSize =  stmts.size();
+
+                // Process statements
+
+                // Check if more than 1 statment
+                if (stmtsSize > 1) {
+                    for (int i = 0; i < stmtsSize - 1; i++) {
+                        // Process all until last
+                        AST.Stmt stmt = (AST.Stmt) stmts.get(i);
+
+                        List<PDM.CodeInstr> stmtCode = stmt.accept(this, frame);
+                        codeInstr.addAll(stmtCode);
+                    }
+                }
+
+                // Last statement - leave return value on stack
+                AST.Stmt lastStatement = (AST.Stmt) stmts.get(stmtsSize -1);
+                // If expression stamtent manuall process
+                List<PDM.CodeInstr> stmtCode;
+                if (lastStatement instanceof AST.ExprStmt exprStmt) {
+                    // Bypass ExprStmt POP action
+                    stmtCode = exprStmt.expr.accept(this, frame);
+                } else {
+                    // Standard statement processing
+                    stmtCode = lastStatement.accept(this, frame);
+                }
+                codeInstr.addAll(stmtCode);
+
+                return codeInstr;
+            }
 
 			@Override
 			public List<PDM.CodeInstr> visit(AST.VarDef varDef, Mem.Frame frame) {
@@ -298,10 +331,16 @@ public class CodeGen {
 			@Override
 			public List<PDM.CodeInstr> visit(AST.ExprStmt exprStmt, Mem.Frame frame) {
 				List<PDM.CodeInstr> codeInstr = new ArrayList<>();
+                Report.Locatable loc = attrAST.attrLoc.get(exprStmt);
 
 				// Generate code for expression
 				List<PDM.CodeInstr> exprCode = exprStmt.expr.accept(this, frame);
                 codeInstr.addAll(exprCode);
+
+                // Since this is only expression pop value generated from stack
+                // Last statement of function - special handing (NO POP)
+                codeInstr.add(new PDM.PUSH(1, loc));
+                codeInstr.add(new PDM.POPN(loc));  // Pop 1 word (return value)
 
 				return codeInstr;
 			}
@@ -481,11 +520,11 @@ public class CodeGen {
                     }
                 }
 
-				// Generate code for statements
-				for (AST.Stmt stmt : letStmt.stmts) {
-					List<PDM.CodeInstr> stmtCode = stmt.accept(this, frame);
-                    codeInstr.addAll(stmtCode);
-				}
+                // 2. Function body code (statements)
+                if (letStmt.stmts.size() > 0) {
+                    List<PDM.CodeInstr> stmtsInstr = processStatements(letStmt.stmts, frame);
+                    codeInstr.addAll(stmtsInstr);
+                }
 
 				return codeInstr;
 			}

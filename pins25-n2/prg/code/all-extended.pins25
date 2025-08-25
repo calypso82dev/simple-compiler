@@ -1,0 +1,238 @@
+// Built-in functions
+fun exit(exitcode)
+fun putint(intvalue)
+fun putstr(straddr)
+
+// Global variables
+var global_counter = 0
+var global_array = 1, 2, 3, 4, 5
+var global_string = "Global message\n\00"
+
+// Test arithmetic operations
+fun test_arithmetic() =
+    let
+        var a = 10
+        var b = 3
+        var result = 0
+    in
+        putstr("=== Arithmetic Tests ===\n\00"),
+
+        result = a + b,
+        putstr("10 + 3 = \00"), putint(result), putstr("\n\00"),
+
+        result = a - b,
+        putstr("10 - 3 = \00"), putint(result), putstr("\n\00"),
+
+        result = a * b,
+        putstr("10 * 3 = \00"), putint(result), putstr("\n\00"),
+
+        result = a / b,
+        putstr("10 / 3 = \00"), putint(result), putstr("\n\00"),
+
+        result = a % b,
+        putstr("10 % 3 = \00"), putint(result), putstr("\n\00"),
+
+        putstr("\n\00"),
+        0
+    end
+
+// Test comparison operations
+fun test_comparisons() =
+    let
+        var x = 5
+        var y = 3
+    in
+        putstr("=== Comparison Tests ===\n\00"),
+
+        putstr("5 == 3: \00"),
+        if x == y then putstr("true\00") else putstr("false\00") end,
+        putstr("\n\00"),
+
+        putstr("5 != 3: \00"),
+        if x != y then putstr("true\00") else putstr("false\00") end,
+        putstr("\n\00"),
+
+        putstr("5 > 3: \00"),
+        if x > y then putstr("true\00") else putstr("false\00") end,
+        putstr("\n\00"),
+
+        putstr("5 < 3: \00"),
+        if x < y then putstr("true\00") else putstr("false\00") end,
+        putstr("\n\00"),
+
+        putstr("5 >= 3: \00"),
+        if x >= y then putstr("true\00") else putstr("false\00") end,
+        putstr("\n\00"),
+
+        putstr("5 <= 3: \00"),
+        if x <= y then putstr("true\00") else putstr("false\00") end,
+        putstr("\n\00"),
+
+        putstr("\n\00"),
+        0
+    end
+
+// Test logical operations
+fun test_logical() =
+    let
+        var t = 1
+        var f = 0
+    in
+        putstr("=== Logical Tests ===\n\00"),
+
+        putstr("true && false: \00"),
+        if t && f then putstr("true\00") else putstr("false\00") end,
+        putstr("\n\00"),
+
+        putstr("true || false: \00"),
+        if t || f then putstr("true\00") else putstr("false\00") end,
+        putstr("\n\00"),
+
+        putstr("!true: \00"),
+        if !t then putstr("true\00") else putstr("false\00") end,
+        putstr("\n\00"),
+
+        putstr("!false: \00"),
+        if !f then putstr("true\00") else putstr("false\00") end,
+        putstr("\n\00"),
+
+        putstr("\n\00"),
+        0
+    end
+
+// Test loops
+fun test_loops() =
+    let
+        var i = 0
+        var sum = 0
+    in
+        putstr("=== Loop Tests ===\n\00"),
+        putstr("Counting from 1 to 5:\n\00"),
+
+        i = 1,
+        while i <= 5 do
+            putstr("Count: \00"), putint(i), putstr("\n\00"),
+            sum = sum + i,
+            i = i + 1
+        end,
+
+        putstr("Sum 1+2+3+4+5 = \00"), putint(sum), putstr("\n\00"),
+        putstr("\n\00"),
+        0
+    end
+
+// Test function calls and parameters
+fun add_three_numbers(a, b, c) = a + b + c
+
+fun test_function_calls() =
+    let
+        var result = 0
+    in
+        putstr("=== Function Call Tests ===\n\00"),
+
+        result = add_three_numbers(10, 20, 30),
+        putstr("add_three_numbers(10, 20, 30) = \00"), putint(result), putstr("\n\00"),
+
+        putstr("\n\00"),
+        0
+    end
+
+// Test nested functions and scope
+fun test_nested_functions() =
+    let
+        var outer_var = 100
+        fun inner_function() =
+            let
+                var inner_var = 50
+                fun deeply_nested() = outer_var + inner_var
+            in
+                deeply_nested()
+            end
+    in
+        putstr("=== Nested Function Tests ===\n\00"),
+        putstr("outer_var + inner_var = \00"),
+        putint(inner_function()),
+        putstr("\n\00"),
+        putstr("\n\00"),
+        0
+    end
+
+// Test pointers and references
+fun test_pointers() =
+    let
+        var x = 42
+        var ptr = 0
+        var value = 0
+    in
+        putstr("=== Pointer Tests ===\n\00"),
+
+        putstr("x = \00"), putint(x), putstr("\n\00"),
+
+        ptr = ^x,
+        putstr("ptr = ^x (address of x)\n\00"),
+
+        value = ptr^,
+        putstr("ptr^ = \00"), putint(value), putstr("\n\00"),
+
+        ptr^ = 99,
+        putstr("ptr^ = 99 (modify x through pointer)\n\00"),
+        putstr("x is now = \00"), putint(x), putstr("\n\00"),
+
+        putstr("\n\00"),
+        0
+    end
+
+// Test global variable access
+fun test_globals() =
+    putstr("=== Global Variable Tests ===\n\00"),
+    putstr("global_counter = \00"), putint(global_counter), putstr("\n\00"),
+    global_counter = global_counter + 1,
+    putstr("After increment: \00"), putint(global_counter), putstr("\n\00"),
+    putstr("\n\00"),
+    0
+
+// Test iterative calculation
+fun factorial(n) =
+    let
+        var result = 1
+        var i = 1
+    in
+        while i <= n do
+            result = result * i,
+            i = i + 1
+        end,
+        result
+    end
+
+fun test_iterative() =
+    let
+        var result = 0
+    in
+        putstr("=== Iterative Tests ===\n\00"),
+
+        result = factorial(5),
+        putstr("factorial(5) = \00"), putint(result), putstr("\n\00"),
+
+        result = factorial(0),
+        putstr("factorial(0) = \00"), putint(result), putstr("\n\00"),
+
+        putstr("\n\00"),
+        0
+    end
+
+// Main function - run all tests
+fun main() =
+    putstr("===== COMPREHENSIVE LANGUAGE TEST =====\n\n\00"),
+
+    test_arithmetic(),
+    test_comparisons(),
+    test_logical(),
+    test_loops(),
+    test_function_calls(),
+    test_nested_functions(),
+    test_pointers(),
+    test_globals(),
+    test_iterative(),
+
+    putstr("===== ALL TESTS COMPLETED =====\n\00"),
+    exit(0)

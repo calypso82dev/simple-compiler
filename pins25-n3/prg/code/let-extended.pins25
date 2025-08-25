@@ -1,0 +1,183 @@
+// Built-in functions
+fun exit(exitcode)
+fun putint(intvalue)
+fun putstr(straddr)
+
+// Simple test case from your example
+var i = 2
+
+fun foo(x) =
+    let
+        var i = 12
+        fun foo2() = i = 25, 0
+    in
+        foo2(),
+        x = i,
+        x
+    end
+
+// Test Case 1: Basic nested let with variable shadowing
+var global_x = 100
+
+fun test_basic() =
+    let
+        var x = 10          // shadows global_x
+        var y = 20
+    in
+        let
+            var x = 30      // shadows outer let x
+            var z = 0       // initialize with 0, then assign
+        in
+            z = x + y,      // z = 30 + 20 = 50
+            x + z           // returns 30 + 50 = 80
+        end
+    end
+
+// Test Case 2: Deep nesting with static link traversal
+var global_i = 1000
+
+fun test_deep_nesting() =
+    let
+        var a = 1
+        fun level1() =
+            let
+                var b = 2
+                fun level2() =
+                    let
+                        var c = 3
+                        fun level3() =
+                            let
+                                var d = 4
+                                var result = 0
+                            in
+                                result = a + b + c + d + global_i,  // 1+2+3+4+1000 = 1010
+                                result
+                            end
+                    in
+                        level3()
+                    end
+            in
+                level2()
+            end
+    in
+        level1()
+    end
+
+// Test Case 3: Variable modification across scopes
+fun test_modification() =
+    let
+        var counter = 0
+        fun increment() = counter = counter + 1, 0
+        fun double_increment() =
+            let
+                fun inner_inc() = counter = counter + 2, 0
+            in
+                increment(),     // counter = 1
+                inner_inc(),     // counter = 3
+                counter
+            end
+    in
+        double_increment()       // returns 3
+    end
+
+// Test Case 4: Multiple parameters and local variables
+fun test_params(x, y) =
+    let
+        var local_a = 0
+        var local_b = 0
+        fun helper(z) =
+            let
+                var temp = 0
+                fun inner_helper(w) =
+                    let
+                        var result = 0
+                    in
+                        result = temp + w + x + y,    // accesses all scopes
+                        result
+                    end
+            in
+                temp = z + local_a + local_b,
+                inner_helper(5)
+            end
+    in
+        local_a = x * 2,
+        local_b = y * 3,
+        helper(10)
+    end
+
+// Test Case 6: Multiple functions sharing variables
+fun test_shared_vars() =
+    let
+        var shared = 10
+        var count = 0
+
+        fun add_to_shared(x) =
+            let
+                var old_value = 0
+            in
+                old_value = shared,
+                shared = shared + x,
+                count = count + 1,
+                old_value
+            end
+
+        fun multiply_shared(x) =
+            let
+                var old_value = 0
+            in
+                old_value = shared,
+                shared = shared * x,
+                count = count + 1,
+                old_value
+            end
+
+        fun get_stats() =
+            let
+                var current = 0
+                var operations = 0
+                var result = 0
+            in
+                current = shared,
+                operations = count,
+                result = current + operations,    // shared + count
+                result
+            end
+    in
+        add_to_shared(5),       // shared = 15, count = 1
+        multiply_shared(2),     // shared = 30, count = 2
+        get_stats()             // returns 30 + 2 = 32
+    end
+
+// Main function to run tests
+fun main() =
+    putstr("Running nested scope tests:\n\n\00"),
+
+    putstr("Test basic: \00"),
+    putint(test_basic()),           // Should return 80
+    putstr("\n\n\00"),
+
+    putstr("Test deep nesting: \00"),
+    putint(test_deep_nesting()),    // Should return 1010
+    putstr("\n\n\00"),
+
+    putstr("Test modification: \00"),
+    putint(test_modification()),    // Should return 3
+    putstr("\n\n\00"),
+
+    putstr("Test params: \00"),
+    putint(test_params(5, 3)),      // Should work with parameters
+    putstr("\n\n\00"),
+
+    putstr("Test shared vars: \00"),
+    putint(test_shared_vars()),     // Should return 32
+    putstr("\n\n\00"),
+
+    putstr("Your foo test: \00"),
+    putint(foo(5)),                 // Should return 25
+    putstr("\n\n\00"),
+
+    putstr("Global i unchanged: \00"),
+    putint(i),                      // Should still be 2
+    putstr("\n\n\00"),
+
+    exit(0)

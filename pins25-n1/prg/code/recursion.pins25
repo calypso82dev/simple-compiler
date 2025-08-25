@@ -1,0 +1,44 @@
+// Built-in functions
+fun exit(exitcode)
+fun putint(intvalue)
+fun putstr(straddr)
+
+// Simple countdown recursion
+fun countdown(n) =
+    let
+        var result = 0
+    in
+        putstr("Count: \00"), putint(n), putstr("\n\00"),
+        if n == 0 then
+            result = 999
+        else
+            result = countdown(n - 1)
+        end,
+        result
+    end
+
+// Simple sum recursion: sum(n) = 1 + 2 + ... + n
+fun sum(n) =
+    let
+        var result = 0
+    in
+        if n == 0 then
+            result = 0
+        else
+            result = n + sum(n - 1)
+        end,
+        result
+    end
+
+fun main() =
+    putstr("=== Simple Recursion Tests ===\n\00"),
+
+    putstr("Countdown from 3:\n\00"),
+    putint(countdown(3)),
+    putstr("\n\00"),
+
+    putstr("Sum of 1+2+3+4+5: \00"),
+    putint(sum(5)),
+    putstr("\n\00"),
+
+    exit(0)

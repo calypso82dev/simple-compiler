@@ -2,11 +2,15 @@ fun exit(exitcode)
 fun putint(intvalue)
 fun putstr(straddr)
 
+var c = 12
 fun add(a, b) = a + b
 
+var d = "Hello World\n\00"
 
 fun main() =
-    putstr("19 + 2 = \00"),
-    putint(add(19, 2)),
+    putstr("Hello World\n\00"),
+    putint(add(c, 15)),
     putstr("\n\00"),
     exit(0)
+
+  

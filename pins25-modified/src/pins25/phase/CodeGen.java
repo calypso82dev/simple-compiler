@@ -166,7 +166,7 @@ public static AttrAST generate(final Memory.AttrAST memoryAttrAST) {
 
             private int jumpLabelCounter = 0;
             private String generateJumpLabel() {
-                return "J_L" + (jumpLabelCounter++);
+                return "L" + (jumpLabelCounter++);
             }
 
             private String generateStringLabel(AST.AtomExpr atomExpr) {
@@ -353,7 +353,6 @@ public static AttrAST generate(final Memory.AttrAST memoryAttrAST) {
                 codeInstr.addAll(srcCode);
 
 				// 2. Destination address (left side)
-//				List<PDM.CodeInstr> dstCode = handleAddressOf(assignStmt.dstExpr, frame);
 				List<PDM.CodeInstr> dstCode = assignStmt.dstExpr.accept(this, frame);
                 codeInstr.addAll(dstCode);
 
@@ -368,9 +367,9 @@ public static AttrAST generate(final Memory.AttrAST memoryAttrAST) {
 				List<PDM.CodeInstr> ifInstr = new ArrayList<>();
 				Report.Locatable ifLoc = attrAST.attrLoc.get(ifStmt);
 
-				String thenLabel = generateJumpLabel();
-				String elseLabel = generateJumpLabel();
-				String endLabel = generateJumpLabel();
+                String thenLabel = "J_IF_THEN_" + generateJumpLabel();
+                String elseLabel = "J_IF_ELSE_" + generateJumpLabel();
+                String endLabel = "J_IF_END_" + generateJumpLabel();
 
 				// Generate condition code (value is now on stack)
 				List<PDM.CodeInstr> condCode = ifStmt.cond.accept(this, frame);
@@ -412,9 +411,9 @@ public static AttrAST generate(final Memory.AttrAST memoryAttrAST) {
 				List<PDM.CodeInstr> whileInstr = new ArrayList<>();
 				Report.Locatable whileLoc = attrAST.attrLoc.get(whileStmt);
 
-				String startLabel = generateJumpLabel();  // Beginning of loop (condition check)
-				String bodyLabel = generateJumpLabel();   // Start of loop body
-				String endLabel = generateJumpLabel();    // End of loop
+                String startLabel = "J_WH_START_" + generateJumpLabel();  // Beginning of loop (condition check)
+                String bodyLabel = "J_WH_BODY_" + generateJumpLabel();   // Start of loop body
+                String endLabel = "J_WH_END_" + generateJumpLabel();    // End of loop
 
 				// Start label - where we check the condition
 				whileInstr.add(new PDM.LABEL(startLabel, whileLoc));
@@ -780,17 +779,6 @@ public static AttrAST generate(final Memory.AttrAST memoryAttrAST) {
 
                 // Use semantic analysis to find the definition
                 AST.Def definition = attrAST.attrDef.get(varExpr);
-                System.out.println("Var code: " + varExpr.hashCode());
-                System.out.println("Definition: " + definition);
-
-                // Print all keys and values in attrDef map
-                System.out.println("=== attrDef Map Contents ===");
-                for (Map.Entry<AST.NameExpr, AST.Def> entry : attrAST.attrDef.entrySet()) {
-
-                    System.out.println("Key: " + entry.getKey().hashCode() + " -> Value: " + entry.getValue().name);
-
-                }
-                System.out.println("=== End of attrDef Map ===");
 
                 // 1. Absolute Access (global variable)
                 if (definition instanceof AST.VarDef varDef) {
@@ -819,7 +807,6 @@ public static AttrAST generate(final Memory.AttrAST memoryAttrAST) {
                     relAccess = attrAST.attrParAccess.get(parDef);
                 }
                 if (relAccess == null) {
-                    System.out.println(varExpr.name);
                     throw new Report.Error(loc, "Cannot determine access for variable: " + varExpr.name);
                 }
 

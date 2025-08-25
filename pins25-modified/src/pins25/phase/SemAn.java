@@ -402,12 +402,20 @@ public class SemAn {
 
             @Override
             public Object visit(AST.UnExpr unExpr, Object arg) {
+                // Check increment, decrement operators
                 if (unExpr.oper == UnExpr.Oper.INC || unExpr.oper == UnExpr.Oper.DEC) {
                     // Chck if expression if var
-                    // If not throw exception
                     if (!(unExpr.expr instanceof AST.VarExpr)) {
                         throw new Report.Error(attrAST.attrLoc.get(unExpr),
                                 "Increment/Decrement operators can be only used in combination with variable");
+                    }
+                }
+                // Check Index operrators
+                if (unExpr.oper == UnExpr.Oper.INDEX) {
+                    // Chck if expression if var
+                    if (!(unExpr.expr instanceof AST.VarExpr)) {
+                        throw new Report.Error(attrAST.attrLoc.get(unExpr),
+                                "Index [] operator can be only used in combination with variable");
                     }
                 }
                 return null;
