@@ -10,7 +10,6 @@ fun main() =
     in
         while i < 5 do
             putint(arr[i]),
-            putstr("\n\00"),
             i++
         end
     end,

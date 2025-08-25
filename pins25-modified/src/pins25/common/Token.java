@@ -81,10 +81,14 @@ public record Token(Report.Location location, Symbol symbol, String lexeme) impl
 		MOD,
 		/** Simbol {@code ^}. */
 		PTR,
-		/** Simbol {@code (}. */
-		LPAREN,
-		/** Simbol {@code )}. */
-		RPAREN,
+        /** Simbol {@code (}. */
+        LPAREN,
+        /** Simbol {@code )}. */
+        RPAREN,
+        /** Simbol {@code (}. */
+        LSQBRACK,
+        /** Simbol {@code )}. */
+        RSQBRACK,
 	}
 
 	@Override

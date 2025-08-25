@@ -2,10 +2,12 @@ fun exit(exitcode)
 fun putint(intvalue)
 fun putstr(straddr)
 
-var i = 2
+var i = 0
+var k = 10
 
 fun main() =
-    putint(i++),
-    //1++,
-    putint(i),
+    while i < 10 do
+        putint(i++),
+        putint(--k)
+    end,
     exit(0)

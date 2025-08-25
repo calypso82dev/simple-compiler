@@ -486,6 +486,7 @@ public class SynAn implements AutoCloseable {
 				break;
 
 			case Token.Symbol.RPAREN:
+            case Token.Symbol.RSQBRACK: // ] - end of postfix
 			case Token.Symbol.FUN:
 			case Token.Symbol.ASSIGN:
 			case Token.Symbol.VAR:
@@ -532,6 +533,7 @@ public class SynAn implements AutoCloseable {
 				break;
 			case Token.Symbol.OR:
 			case Token.Symbol.RPAREN:
+            case Token.Symbol.RSQBRACK: // ] - end of postfix
 			case Token.Symbol.FUN:
 			case Token.Symbol.ASSIGN:
 			case Token.Symbol.VAR:
@@ -614,6 +616,7 @@ public class SynAn implements AutoCloseable {
 			case Token.Symbol.OR:
 			case Token.Symbol.AND:
 			case Token.Symbol.RPAREN:
+            case Token.Symbol.RSQBRACK: // ] - end of postfix
 			case Token.Symbol.FUN:
 			case Token.Symbol.ASSIGN:
 			case Token.Symbol.VAR:
@@ -681,6 +684,7 @@ public class SynAn implements AutoCloseable {
 			case Token.Symbol.OR:
 			case Token.Symbol.AND:
 			case Token.Symbol.RPAREN:
+            case Token.Symbol.RSQBRACK: // ] - end of postfix
 			case Token.Symbol.FUN:
 			case Token.Symbol.ASSIGN:
 			case Token.Symbol.VAR:
@@ -760,6 +764,7 @@ public class SynAn implements AutoCloseable {
 			case Token.Symbol.OR:
 			case Token.Symbol.AND:
 			case Token.Symbol.RPAREN:
+            case Token.Symbol.RSQBRACK: // ] - end of postfix
 			case Token.Symbol.FUN:
 			case Token.Symbol.ASSIGN:
 			case Token.Symbol.VAR:
@@ -938,6 +943,15 @@ public class SynAn implements AutoCloseable {
                 this.attrLoc.put(unExpr, new Report.Location(getExprLocation(exprL), endLoc));
                 expr = parsePostExpr2(unExpr); // Recursievly process post prefixes
                 break;
+            case Token.Symbol.LSQBRACK:
+                // Production: opt_args -> [ expr ]
+                check(Token.Symbol.LSQBRACK); // consume '('
+                AST.Expr indexExpr = parseExpr(); // Parse Expression
+                unExpr = new AST.UnExpr(AST.UnExpr.Oper.INDEX, exprL, indexExpr);
+                endLoc = check(Token.Symbol.RSQBRACK, "Expected ']' after '['");
+                this.attrLoc.put(unExpr, new Report.Location(getExprLocation(exprL), endLoc));
+                expr = parsePostExpr2(unExpr);
+                break;
 
 			case Token.Symbol.MUL:
 			case Token.Symbol.DIV:
@@ -953,6 +967,7 @@ public class SynAn implements AutoCloseable {
 			case Token.Symbol.OR:
 			case Token.Symbol.AND:
 			case Token.Symbol.RPAREN:
+            case Token.Symbol.RSQBRACK: // ] - end of postfix
 			case Token.Symbol.FUN:
 			case Token.Symbol.ASSIGN:
 			case Token.Symbol.VAR:
@@ -1062,9 +1077,11 @@ public class SynAn implements AutoCloseable {
 			case Token.Symbol.MOD:
 			case Token.Symbol.ADD:
 			case Token.Symbol.SUB:
-            case Token.Symbol.PTR:
-            case Token.Symbol.INC:
-            case Token.Symbol.DEC:
+            case Token.Symbol.PTR: // Post
+            case Token.Symbol.INC: // Post
+            case Token.Symbol.DEC: // Post
+            case Token.Symbol.LSQBRACK: // Start of Index
+            case Token.Symbol.RSQBRACK:
 			case Token.Symbol.EQU:
 			case Token.Symbol.NEQ:
 			case Token.Symbol.GTH:

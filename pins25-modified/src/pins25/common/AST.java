@@ -570,9 +570,14 @@ public class AST {
             INC,
             /** Decrement (postfiksni ali prefizni). */
             DEC,
+            /** Array index expr[indexExpr] */
+            INDEX
 		}
         // Flag for controlling INC, DEC
         public boolean isPostfix = true;
+
+        // In case of INDEX
+        public Expr indexExpr = null;
 
 		/** Enomestni operator. */
 		public final Oper oper;
@@ -597,7 +602,12 @@ public class AST {
             this.expr = expr;
             this.isPostfix = isPostfix;
         }
-
+        public UnExpr(final Oper oper, final Expr expr, final Expr indexExpr) {
+            super();
+            this.oper = oper;
+            this.expr = expr;
+            this.indexExpr = indexExpr;
+        }
 		@Override
 		public <Result, Argument> Result accept(Visitor<Result, Argument> visitor, Argument arg) {
 			return visitor.visit(this, arg);

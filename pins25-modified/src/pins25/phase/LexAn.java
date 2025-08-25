@@ -416,6 +416,8 @@ public class LexAn implements AutoCloseable {
             case '^' -> Token.Symbol.PTR;
             case '(' -> Token.Symbol.LPAREN;
             case ')' -> Token.Symbol.RPAREN;
+            case '[' -> Token.Symbol.LSQBRACK;
+            case ']' -> Token.Symbol.RSQBRACK;
             default -> throw new Report.Error("Unknown character: " + firstChar);
         };
 

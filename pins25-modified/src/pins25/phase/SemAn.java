@@ -368,6 +368,19 @@ public class SemAn {
 				return null;
 			}
 
+            // Required for INDEX operators
+            @Override
+            public Object visit(final AST.UnExpr unExpr, final Pass pass) {
+                // PRocess regular expression
+                unExpr.expr.accept(this, null);
+
+                // If Index expression process that
+                if (unExpr.oper == UnExpr.Oper.INDEX) {
+                    unExpr.indexExpr.accept(this, null);
+                }
+                return null;
+            }
+
 		}
 
 	}
@@ -382,13 +395,13 @@ public class SemAn {
             attrAST.ast.accept(new OperatorResolverVisitor(), null);
         }
 
-        private class OperatorResolverVisitor implements AST.FullVisitor<Void, Void> {
+        private class OperatorResolverVisitor implements AST.FullVisitor<Object, Object> {
             @SuppressWarnings({ "doclint:missing" })
             public OperatorResolverVisitor() {
             }
 
             @Override
-            public Void visit(AST.UnExpr unExpr, Void arg) {
+            public Object visit(AST.UnExpr unExpr, Object arg) {
                 if (unExpr.oper == UnExpr.Oper.INC || unExpr.oper == UnExpr.Oper.DEC) {
                     // Chck if expression if var
                     // If not throw exception
@@ -574,9 +587,9 @@ public class SemAn {
 				}
 				
 				// Case 2: Expression has postfix ^ as outermost operator
-				if (expr instanceof AST.UnExpr) {
-					AST.UnExpr unExpr = (AST.UnExpr)expr;
-					if (unExpr.oper == UnExpr.Oper.VALUEAT) {
+				if (expr instanceof AST.UnExpr unExpr) {
+					if (unExpr.oper == UnExpr.Oper.VALUEAT ||
+                            unExpr.oper == UnExpr.Oper.INDEX) {
 						return true;
 					}
 				}
