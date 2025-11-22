@@ -1,6 +1,0 @@
-
-fun sub(c, d) = c - d
-fun add(a, b) = a + b
-
-fun main() =
-    add(19, 2)
